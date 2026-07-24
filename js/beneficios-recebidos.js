@@ -1,11 +1,14 @@
 // =====================================================================
-// BENEFÍCIOS RECEBIDOS – GUIAS 3
+// BENEFÍCIOS RECEBIDOS – GUIA 3
 // =====================================================================
 
 var contadorBeneficio = 0;
 
 function adicionarBeneficioRecebido(dados) {
     dados = dados || {};
+    const resultado = dados.resultado || null;
+    const memoriaExpandida = dados.memoriaExpandida || false;
+
     contadorBeneficio++;
     const container = document.getElementById('containerBeneficiosRecebidos');
     if (!container) return null;
@@ -14,6 +17,7 @@ function adicionarBeneficioRecebido(dados) {
     bloco.className = 'beneficio-recebido-bloco';
     bloco.dataset.id = contadorBeneficio;
 
+    // HTML do bloco (campos + área de resultado)
     bloco.innerHTML = `
         <button type="button" class="btn-remover" onclick="removerBeneficioRecebido(this)">Remover</button>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -80,38 +84,225 @@ function adicionarBeneficioRecebido(dados) {
                 <textarea data-campo="observacoes" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Observações sobre este benefício recebido...">${dados.observacoes || ''}</textarea>
             </div>
         </div>
+
+        <!-- ÁREA DE RESULTADO -->
+        <div class="resultado-beneficio-recebido mt-4 border-t border-slate-200 pt-3 ${resultado ? '' : 'hidden'}">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <span class="text-xs font-bold text-slate-500">RMA Final:</span>
+                    <span class="text-sm font-bold text-blue-700 rma-final">${resultado ? formatarMoeda(resultado.rmaFinal) : 'R$ 0,00'}</span>
+                    <span class="text-xs font-bold text-slate-500 ml-3">Status:</span>
+                    <span class="status-badge ${resultado ? (resultado.statusFinal === 'LIMITADO_TETO' ? 'status-teto' : resultado.statusFinal === 'PISO' ? 'status-piso' : 'status-normal') : 'status-normal'} status-final">${resultado ? (resultado.statusFinal === 'LIMITADO_TETO' ? 'TETO' : resultado.statusFinal) : 'NORMAL'}</span>
+                </div>
+                <div class="flex gap-2">
+                    <button class="btn-calcular-evolucao px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition">Calcular Evolução</button>
+                    <button class="btn-toggle-memoria px-3 py-1 bg-slate-600 text-white text-xs rounded hover:bg-slate-700 transition">${memoriaExpandida ? 'Ocultar' : 'Exibir'} Memória</button>
+                </div>
+            </div>
+            <div class="resumo-beneficio-recebido mt-2 text-xs text-slate-600 flex flex-wrap gap-4">
+                <span>Reajustes: <strong class="qtd-reajustes">${resultado ? resultado.qtdReajustes : 0}</strong></span>
+                <span>Último reajuste: <strong class="ultimo-reajuste">${resultado ? resultado.ultimoReajuste : '-'}</strong></span>
+                <span>Último índice: <strong class="ultimo-indice">${resultado && resultado.ultimoIndice !== null ? resultado.ultimoIndice.toFixed(4) : '-'}</strong></span>
+            </div>
+            <div class="memoria-beneficio-recebido mt-3 overflow-x-auto ${memoriaExpandida ? '' : 'hidden'}">
+                <table class="w-full text-left border-collapse text-xs memoria-tabela">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-700 border-b border-slate-200 text-xs uppercase">
+                            <th class="p-2">Competência</th>
+                            <th class="p-2">Tipo</th>
+                            <th class="p-2">Índice</th>
+                            <th class="p-2">Sal. Min.</th>
+                            <th class="p-2">Teto</th>
+                            <th class="p-2">Índ. Teto</th>
+                            <th class="p-2">Status</th>
+                            <th class="p-2">Vlr. Teórico</th>
+                            <th class="p-2">Vlr. Evoluído</th>
+                            <th class="p-2">Vlr. Final</th>
+                        </tr>
+                    </thead>
+                    <tbody class="memoria-tbody">
+                        ${resultado && resultado.memoria ? resultado.memoria.map(item => `
+                            <tr class="${item.status === 'PISO' ? 'row-piso' : item.status === 'LIMITADO_TETO' ? 'row-teto' : ''}">
+                                <td class="p-2 font-semibold">${item.competencia}</td>
+                                <td class="p-2">${item.tipo ? `<span class="px-1 py-0.5 rounded text-xs font-bold ${item.tipo === 'PRO RATA' ? 'bg-amber-100 text-amber-800 border border-amber-200' : item.tipo === 'INTEGRAL' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : item.tipo === 'PRO RATA/FALLBACK' ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-gray-100 text-gray-600 border border-gray-200'}">${item.tipo}</span>` : '-'}</td>
+                                <td class="p-2">${item.indice !== null ? item.indice.toFixed(4) : '-'}</td>
+                                <td class="p-2">${formatarNumero(item.salarioMinimo)}</td>
+                                <td class="p-2">${formatarNumero(item.teto)}</td>
+                                <td class="p-2">${item.indiceTeto !== null ? item.indiceTeto.toFixed(5) : '-'}</td>
+                                <td class="p-2"><span class="status-badge ${item.status === 'PISO' ? 'status-piso' : item.status === 'LIMITADO_TETO' ? 'status-teto' : 'status-normal'}">${item.status === 'LIMITADO_TETO' ? 'TETO' : item.status}</span></td>
+                                <td class="p-2">${formatarNumero(item.valorTeorico)}</td>
+                                <td class="p-2">${formatarNumero(item.valorEvoluido)}</td>
+                                <td class="p-2 font-bold">${formatarNumero(item.valorFinal)}</td>
+                            </tr>
+                        `).join('') : ''}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     `;
+
     container.appendChild(bloco);
+
+    // Eventos do bloco
+    const btnCalcular = bloco.querySelector('.btn-calcular-evolucao');
+    const btnToggle = bloco.querySelector('.btn-toggle-memoria');
+    const divResultado = bloco.querySelector('.resultado-beneficio-recebido');
+
+    btnCalcular.addEventListener('click', function() {
+        calcularBeneficioRecebido(bloco);
+    });
+
+    btnToggle.addEventListener('click', function() {
+        const memoriaDiv = bloco.querySelector('.memoria-beneficio-recebido');
+        const isHidden = memoriaDiv.classList.contains('hidden');
+        memoriaDiv.classList.toggle('hidden');
+        this.textContent = isHidden ? 'Ocultar Memória' : 'Exibir Memória';
+        // Atualiza estado no bloco (para salvar depois)
+        bloco.dataset.memoriaExpandida = isHidden ? 'true' : 'false';
+    });
+
+    // Se já houver resultado, restaurar estado de expansão
+    if (resultado) {
+        divResultado.classList.remove('hidden');
+        if (memoriaExpandida) {
+            bloco.querySelector('.memoria-beneficio-recebido').classList.remove('hidden');
+            btnToggle.textContent = 'Ocultar Memória';
+        } else {
+            bloco.querySelector('.memoria-beneficio-recebido').classList.add('hidden');
+            btnToggle.textContent = 'Exibir Memória';
+        }
+        bloco.dataset.memoriaExpandida = memoriaExpandida ? 'true' : 'false';
+    } else {
+        divResultado.classList.add('hidden');
+        bloco.dataset.memoriaExpandida = 'false';
+    }
+
     return bloco;
 }
 
-function removerBeneficioRecebido(botao) {
-    if (confirm('Remover este benefício recebido?')) {
-        const bloco = botao.closest('.beneficio-recebido-bloco');
-        if (bloco) bloco.remove();
+// ---------------------------------------------------------------------
+// FUNÇÃO PARA CALCULAR UM BENEFÍCIO RECEBIDO INDIVIDUAL
+// ---------------------------------------------------------------------
+function calcularBeneficioRecebido(bloco) {
+    try {
+        // Coletar dados do bloco
+        const getVal = (campo) => bloco.querySelector(`[data-campo="${campo}"]`).value;
+        const getSelect = (campo) => bloco.querySelector(`[data-campo="${campo}"]`).value;
+
+        const dib = getVal('dib');
+        const rmiStr = getVal('rmi');
+        const dataFinal = dib; // Data final = DIB para evolução até hoje? Mas o benefício recebido pode ter DCB. Vamos usar DCB ou data final padrão.
+        // Para evolução individual, usaremos a DIB como data final? Melhor usar a DCB se preenchida, senão usar a data final do sistema.
+        // Por simplicidade, usaremos a DCB se preenchida, senão a data final do sistema (pega da guia Entradas).
+        let dataFinalBeneficio = getVal('dcb');
+        if (!dataFinalBeneficio || dataFinalBeneficio.length < 7) {
+            // Usar a data final da guia Entradas (competência final solicitada)
+            dataFinalBeneficio = document.getElementById('dataFinal').value;
+        }
+        if (!dataFinalBeneficio || dataFinalBeneficio.length < 7) {
+            alert('Defina uma DCB ou preencha a Data Final de Evolução na guia Entradas.');
+            return;
+        }
+
+        const transformado = getSelect('transformado') === 'sim';
+        const dibAntecedente = getVal('dibAntecedente');
+        const tipoBeneficio = getSelect('tipo');
+        const percentualDesdobramento = parseFloat(getVal('percentualDesdobramento').replace(',', '.')) || 100;
+        const adicionalTipo = getSelect('adicional');
+        const adicionalPercentual = parseFloat(getVal('adicionalPercentual').replace(',', '.')) || 0;
+
+        const rmi = parseMoeda(rmiStr);
+        if (isNaN(rmi) || rmi <= 0) {
+            alert('RMI inválida.');
+            return;
+        }
+
+        // Parâmetros para o motor
+        const parametros = {
+            dib: dib,
+            rmi: rmi,
+            dataFinal: dataFinalBeneficio,
+            transformado: transformado,
+            dibAntecedente: dibAntecedente,
+            tipoBeneficio: tipoBeneficio,
+            percentualDesdobramento: percentualDesdobramento,
+            adicionalTipo: adicionalTipo,
+            adicionalPercentual: adicionalPercentual
+        };
+
+        // Chamar o motor
+        const resultado = evoluirBeneficio(parametros);
+
+        // Atualizar a exibição no bloco
+        const divResultado = bloco.querySelector('.resultado-beneficio-recebido');
+        divResultado.classList.remove('hidden');
+
+        const rmaEl = divResultado.querySelector('.rma-final');
+        const statusEl = divResultado.querySelector('.status-final');
+        const qtdEl = divResultado.querySelector('.qtd-reajustes');
+        const ultimoReajusteEl = divResultado.querySelector('.ultimo-reajuste');
+        const ultimoIndiceEl = divResultado.querySelector('.ultimo-indice');
+        const tbody = divResultado.querySelector('.memoria-tbody');
+
+        rmaEl.textContent = formatarMoeda(resultado.rmaFinal);
+        const statusExibicao = resultado.statusFinal === 'LIMITADO_TETO' ? 'TETO' : resultado.statusFinal;
+        statusEl.textContent = statusExibicao;
+        statusEl.className = `status-badge ${resultado.statusFinal === 'LIMITADO_TETO' ? 'status-teto' : resultado.statusFinal === 'PISO' ? 'status-piso' : 'status-normal'} status-final`;
+        qtdEl.textContent = resultado.qtdReajustes;
+        ultimoReajusteEl.textContent = resultado.ultimoReajuste;
+        ultimoIndiceEl.textContent = resultado.ultimoIndice !== null ? resultado.ultimoIndice.toFixed(4) : '-';
+
+        // Montar tabela
+        tbody.innerHTML = resultado.memoria.map(item => `
+            <tr class="${item.status === 'PISO' ? 'row-piso' : item.status === 'LIMITADO_TETO' ? 'row-teto' : ''}">
+                <td class="p-2 font-semibold">${item.competencia}</td>
+                <td class="p-2">${item.tipo ? `<span class="px-1 py-0.5 rounded text-xs font-bold ${item.tipo === 'PRO RATA' ? 'bg-amber-100 text-amber-800 border border-amber-200' : item.tipo === 'INTEGRAL' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : item.tipo === 'PRO RATA/FALLBACK' ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-gray-100 text-gray-600 border border-gray-200'}">${item.tipo}</span>` : '-'}</td>
+                <td class="p-2">${item.indice !== null ? item.indice.toFixed(4) : '-'}</td>
+                <td class="p-2">${formatarNumero(item.salarioMinimo)}</td>
+                <td class="p-2">${formatarNumero(item.teto)}</td>
+                <td class="p-2">${item.indiceTeto !== null ? item.indiceTeto.toFixed(5) : '-'}</td>
+                <td class="p-2"><span class="status-badge ${item.status === 'PISO' ? 'status-piso' : item.status === 'LIMITADO_TETO' ? 'status-teto' : 'status-normal'}">${item.status === 'LIMITADO_TETO' ? 'TETO' : item.status}</span></td>
+                <td class="p-2">${formatarNumero(item.valorTeorico)}</td>
+                <td class="p-2">${formatarNumero(item.valorEvoluido)}</td>
+                <td class="p-2 font-bold">${formatarNumero(item.valorFinal)}</td>
+            </tr>
+        `).join('');
+
+        // Salvar resultado no bloco (para exportação posterior)
+        bloco.dataset.resultado = JSON.stringify(resultado);
+        // Expandir memória automaticamente
+        const memoriaDiv = divResultado.querySelector('.memoria-beneficio-recebido');
+        memoriaDiv.classList.remove('hidden');
+        const btnToggle = divResultado.closest('.beneficio-recebido-bloco').querySelector('.btn-toggle-memoria');
+        btnToggle.textContent = 'Ocultar Memória';
+        bloco.dataset.memoriaExpandida = 'true';
+
+    } catch (erro) {
+        alert('Erro ao calcular benefício recebido: ' + erro.message);
     }
 }
 
+// ---------------------------------------------------------------------
+// COLETA E RESTAURAÇÃO (com resultado)
+// ---------------------------------------------------------------------
 function coletarBeneficiosRecebidos() {
     const blocos = document.querySelectorAll('.beneficio-recebido-bloco');
     const resultados = [];
-
-    // Para cada bloco, extrai os dados
     blocos.forEach(bloco => {
         const campos = bloco.querySelectorAll('[data-campo]');
         const dados = {};
-
         campos.forEach(el => {
             const nome = el.getAttribute('data-campo');
-            // Para input, select e textarea, o valor é sempre .value
             dados[nome] = el.value;
         });
-
-        // Se o bloco tiver pelo menos um campo preenchido, adiciona ao resultado
-        // (ou sempre adiciona, mesmo vazio, para preservar a estrutura)
+        // Recuperar resultado e estado de expansão
+        const resultadoStr = bloco.dataset.resultado;
+        if (resultadoStr) {
+            dados.resultado = JSON.parse(resultadoStr);
+        }
+        dados.memoriaExpandida = bloco.dataset.memoriaExpandida === 'true';
         resultados.push(dados);
     });
-
     return resultados;
 }
 
@@ -120,11 +311,20 @@ function restaurarBeneficiosRecebidos(dados) {
     if (!container) return;
     container.innerHTML = '';
     if (!dados || !Array.isArray(dados) || dados.length === 0) {
-        // Adiciona um bloco vazio como exemplo
         adicionarBeneficioRecebido({});
         return;
     }
     dados.forEach(item => {
         adicionarBeneficioRecebido(item);
     });
+}
+
+// ---------------------------------------------------------------------
+// REMOVER
+// ---------------------------------------------------------------------
+function removerBeneficioRecebido(botao) {
+    if (confirm('Remover este benefício recebido?')) {
+        const bloco = botao.closest('.beneficio-recebido-bloco');
+        if (bloco) bloco.remove();
+    }
 }
