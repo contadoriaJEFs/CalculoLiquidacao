@@ -17,7 +17,6 @@ function adicionarBeneficioRecebido(dados) {
     bloco.className = 'beneficio-recebido-bloco';
     bloco.dataset.id = contadorBeneficio;
 
-    // HTML do bloco (campos + área de resultado)
     bloco.innerHTML = `
         <button type="button" class="btn-remover" onclick="removerBeneficioRecebido(this)">Remover</button>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -85,7 +84,7 @@ function adicionarBeneficioRecebido(dados) {
             </div>
         </div>
 
-        <!-- ÁREA DE RESULTADO -->
+        <!-- ÁREA DE RESULTADO (contém os botões e a memória) -->
         <div class="resultado-beneficio-recebido mt-4 border-t border-slate-200 pt-3 ${resultado ? '' : 'hidden'}">
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -95,15 +94,19 @@ function adicionarBeneficioRecebido(dados) {
                     <span class="status-badge ${resultado ? (resultado.statusFinal === 'LIMITADO_TETO' ? 'status-teto' : resultado.statusFinal === 'PISO' ? 'status-piso' : 'status-normal') : 'status-normal'} status-final">${resultado ? (resultado.statusFinal === 'LIMITADO_TETO' ? 'TETO' : resultado.statusFinal) : 'NORMAL'}</span>
                 </div>
                 <div class="flex gap-2">
+                    <!-- BOTÃO "CALCULAR EVOLUÇÃO" -->
                     <button class="btn-calcular-evolucao px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition">Calcular Evolução</button>
+                    <!-- BOTÃO "OCULTAR/EXIBIR MEMÓRIA" -->
                     <button class="btn-toggle-memoria px-3 py-1 bg-slate-600 text-white text-xs rounded hover:bg-slate-700 transition">${memoriaExpandida ? 'Ocultar' : 'Exibir'} Memória</button>
                 </div>
             </div>
+            <!-- RESUMO INDIVIDUAL -->
             <div class="resumo-beneficio-recebido mt-2 text-xs text-slate-600 flex flex-wrap gap-4">
                 <span>Reajustes: <strong class="qtd-reajustes">${resultado ? resultado.qtdReajustes : 0}</strong></span>
                 <span>Último reajuste: <strong class="ultimo-reajuste">${resultado ? resultado.ultimoReajuste : '-'}</strong></span>
                 <span>Último índice: <strong class="ultimo-indice">${resultado && resultado.ultimoIndice !== null ? resultado.ultimoIndice.toFixed(4) : '-'}</strong></span>
             </div>
+            <!-- MEMÓRIA INDIVIDUAL -->
             <div class="memoria-beneficio-recebido mt-3 overflow-x-auto ${memoriaExpandida ? '' : 'hidden'}">
                 <table class="w-full text-left border-collapse text-xs memoria-tabela">
                     <thead>
@@ -143,7 +146,7 @@ function adicionarBeneficioRecebido(dados) {
 
     container.appendChild(bloco);
 
-    // Eventos do bloco
+    // EVENTOS DO BLOCO
     const btnCalcular = bloco.querySelector('.btn-calcular-evolucao');
     const btnToggle = bloco.querySelector('.btn-toggle-memoria');
     const divResultado = bloco.querySelector('.resultado-beneficio-recebido');
@@ -157,11 +160,9 @@ function adicionarBeneficioRecebido(dados) {
         const isHidden = memoriaDiv.classList.contains('hidden');
         memoriaDiv.classList.toggle('hidden');
         this.textContent = isHidden ? 'Ocultar Memória' : 'Exibir Memória';
-        // Atualiza estado no bloco (para salvar depois)
         bloco.dataset.memoriaExpandida = isHidden ? 'true' : 'false';
     });
 
-    // Se já houver resultado, restaurar estado de expansão
     if (resultado) {
         divResultado.classList.remove('hidden');
         if (memoriaExpandida) {
@@ -180,9 +181,9 @@ function adicionarBeneficioRecebido(dados) {
     return bloco;
 }
 
-// ---------------------------------------------------------------------
-// FUNÇÃO PARA CALCULAR UM BENEFÍCIO RECEBIDO INDIVIDUAL
-// ---------------------------------------------------------------------
+// =====================================================================
+// FUNÇÃO QUE CALCULA UM BENEFÍCIO RECEBIDO INDIVIDUAL
+// =====================================================================
 function calcularBeneficioRecebido(bloco) {
     try {
         // Coletar dados do bloco
@@ -191,12 +192,9 @@ function calcularBeneficioRecebido(bloco) {
 
         const dib = getVal('dib');
         const rmiStr = getVal('rmi');
-        const dataFinal = dib; // Data final = DIB para evolução até hoje? Mas o benefício recebido pode ter DCB. Vamos usar DCB ou data final padrão.
-        // Para evolução individual, usaremos a DIB como data final? Melhor usar a DCB se preenchida, senão usar a data final do sistema.
-        // Por simplicidade, usaremos a DCB se preenchida, senão a data final do sistema (pega da guia Entradas).
+        // Data final: usa DCB se preenchida, senão usa a data final da guia Entradas
         let dataFinalBeneficio = getVal('dcb');
         if (!dataFinalBeneficio || dataFinalBeneficio.length < 7) {
-            // Usar a data final da guia Entradas (competência final solicitada)
             dataFinalBeneficio = document.getElementById('dataFinal').value;
         }
         if (!dataFinalBeneficio || dataFinalBeneficio.length < 7) {
@@ -217,7 +215,6 @@ function calcularBeneficioRecebido(bloco) {
             return;
         }
 
-        // Parâmetros para o motor
         const parametros = {
             dib: dib,
             rmi: rmi,
@@ -230,10 +227,10 @@ function calcularBeneficioRecebido(bloco) {
             adicionalPercentual: adicionalPercentual
         };
 
-        // Chamar o motor
+        // Chama o motor (agora real)
         const resultado = evoluirBeneficio(parametros);
 
-        // Atualizar a exibição no bloco
+        // Atualizar a exibição
         const divResultado = bloco.querySelector('.resultado-beneficio-recebido');
         divResultado.classList.remove('hidden');
 
@@ -252,7 +249,6 @@ function calcularBeneficioRecebido(bloco) {
         ultimoReajusteEl.textContent = resultado.ultimoReajuste;
         ultimoIndiceEl.textContent = resultado.ultimoIndice !== null ? resultado.ultimoIndice.toFixed(4) : '-';
 
-        // Montar tabela
         tbody.innerHTML = resultado.memoria.map(item => `
             <tr class="${item.status === 'PISO' ? 'row-piso' : item.status === 'LIMITADO_TETO' ? 'row-teto' : ''}">
                 <td class="p-2 font-semibold">${item.competencia}</td>
@@ -268,7 +264,7 @@ function calcularBeneficioRecebido(bloco) {
             </tr>
         `).join('');
 
-        // Salvar resultado no bloco (para exportação posterior)
+        // Guarda resultado no bloco para exportação
         bloco.dataset.resultado = JSON.stringify(resultado);
         // Expandir memória automaticamente
         const memoriaDiv = divResultado.querySelector('.memoria-beneficio-recebido');
@@ -282,9 +278,9 @@ function calcularBeneficioRecebido(bloco) {
     }
 }
 
-// ---------------------------------------------------------------------
+// =====================================================================
 // COLETA E RESTAURAÇÃO (com resultado)
-// ---------------------------------------------------------------------
+// =====================================================================
 function coletarBeneficiosRecebidos() {
     const blocos = document.querySelectorAll('.beneficio-recebido-bloco');
     const resultados = [];
@@ -295,7 +291,6 @@ function coletarBeneficiosRecebidos() {
             const nome = el.getAttribute('data-campo');
             dados[nome] = el.value;
         });
-        // Recuperar resultado e estado de expansão
         const resultadoStr = bloco.dataset.resultado;
         if (resultadoStr) {
             dados.resultado = JSON.parse(resultadoStr);
@@ -319,9 +314,9 @@ function restaurarBeneficiosRecebidos(dados) {
     });
 }
 
-// ---------------------------------------------------------------------
+// =====================================================================
 // REMOVER
-// ---------------------------------------------------------------------
+// =====================================================================
 function removerBeneficioRecebido(botao) {
     if (confirm('Remover este benefício recebido?')) {
         const bloco = botao.closest('.beneficio-recebido-bloco');
