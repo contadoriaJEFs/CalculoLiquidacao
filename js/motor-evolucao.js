@@ -1,5 +1,5 @@
 // =====================================================================
-// MOTOR DE EVOLUÇÃO PREVIDENCIÁRIA (HOMOLOGADO)
+// MOTOR DE EVOLUÇÃO PREVIDENCIÁRIA (HOMOLOGADO) – VERSÃO 4.1
 // =====================================================================
 
 // Estado global do motor
@@ -14,7 +14,7 @@ var estadoTermoInicial = {
 };
 
 // ---------------------------------------------------------------------
-// FUNÇÃO CENTRAL DE CÁLCULO (reutilizável)
+// FUNÇÃO CENTRAL DE CÁLCULO (reutilizável) – CORRIGIDA
 // ---------------------------------------------------------------------
 function calcularEvolucao(parametros) {
     // Parâmetros esperados:
@@ -102,10 +102,12 @@ function calcularEvolucao(parametros) {
         };
     }
 
-    // 6) Verificar se a Data Final tem cobertura de salário mínimo/teto (apenas se houver reajustes)
-    //    Mas a verificação de vigências é feita dentro do loop, então não precisamos validar aqui.
+    // 6) Filtrar tabelas que estão dentro do intervalo (DIBRef < competencia <= DataFinal)
+    const tabelasIntervalo = tabelasOrdenadas.filter(tab => 
+        tab.chaveCronologica > chaveDibRef && tab.chaveCronologica <= chaveFinal
+    );
 
-    // 7) Executar evolução normalmente
+    // 7) Executar evolução
     let valorAtual = rmi;
     let statusAtual = "NORMAL";
     let indiceTetoGuardado = null;
@@ -115,11 +117,6 @@ function calcularEvolucao(parametros) {
     let primeiroReajusteFeito = false;
     let ultimoReajusteCompetencia = '';
     let ultimoIndiceAplicado = null;
-
-    // Filtrar tabelas que estão dentro do intervalo (DIBRef < competencia <= DataFinal)
-    const tabelasIntervalo = tabelasOrdenadas.filter(tab => 
-        tab.chaveCronologica > chaveDibRef && tab.chaveCronologica <= chaveFinal
-    );
 
     for (let tab of tabelasIntervalo) {
         const limitadores = obterLimitadores(tab.competencia);
@@ -254,6 +251,7 @@ function calcularEvolucao(parametros) {
         ultimoIndice
     };
 }
+
 // ---------------------------------------------------------------------
 // FUNÇÃO DE SEGURANÇA PARA A GUI "ENTRADAS"
 // ---------------------------------------------------------------------
@@ -418,9 +416,9 @@ function exibirResultado(resultado, parametros) {
     }
 }
 
-// ---------------------------------------------------------------------
-// ALIAS PARA USO EM BENEFÍCIOS RECEBIDOS (SUBSTITUI O PLACEHOLDER)
-// ---------------------------------------------------------------------
+// =====================================================================
+// ALIAS PARA USO EM BENEFÍCIOS RECEBIDOS E FUTURAS EXTENSÕES
+// =====================================================================
 var evoluirBeneficio = calcularEvolucao;
 
 // =====================================================================
