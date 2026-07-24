@@ -114,10 +114,6 @@ function calcularEvolucao(parametros) {
     let ultimoReajusteCompetencia = '';
     let ultimoIndiceAplicado = null;
 
-    // Aplica desdobramento e adicional (apenas cadastral nesta etapa – não altera o cálculo)
-    // Mas o valor final já será o calculado; futuramente aplicaremos aqui.
-    // Por enquanto, o motor usa apenas RMI pura.
-
     for (let tab of tabelasOrdenadas) {
         if (tab.chaveCronologica <= chaveDibRef) continue;
         if (tab.chaveCronologica > chaveFinal) break;
@@ -420,7 +416,7 @@ function exibirResultado(resultado, parametros) {
 }
 
 // ---------------------------------------------------------------------
-// ALIAS PARA USO EM BENEFÍCIOS RECEBIDOS
+// ALIAS PARA USO EM BENEFÍCIOS RECEBIDOS (SUBSTITUI O PLACEHOLDER)
 // ---------------------------------------------------------------------
 var evoluirBeneficio = calcularEvolucao;
 
