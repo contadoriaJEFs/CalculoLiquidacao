@@ -2,7 +2,30 @@
 // BENEFÍCIOS RECEBIDOS – GUIA 3
 // =====================================================================
 
+// =====================================================================
+// BENEFÍCIOS RECEBIDOS – GUIA 3
+// =====================================================================
+
 var contadorBeneficio = 0;
+
+// Função para controlar o bloqueio/liberação da DIB Antecedente
+function toggleTransformacaoRecebido(bloco) {
+    const selectTransformado = bloco.querySelector('[data-campo="transformado"]');
+    const campoDibAnt = bloco.querySelector('[data-campo="dibAntecedente"]');
+    if (!selectTransformado || !campoDibAnt) return;
+
+    const isTransformado = selectTransformado.value === 'sim';
+    if (isTransformado) {
+        campoDibAnt.removeAttribute('readonly');
+        campoDibAnt.classList.remove('bg-slate-100');
+        campoDibAnt.classList.add('bg-white');
+    } else {
+        campoDibAnt.value = '';
+        campoDibAnt.setAttribute('readonly', 'readonly');
+        campoDibAnt.classList.remove('bg-white');
+        campoDibAnt.classList.add('bg-slate-100');
+    }
+}
 
 function adicionarBeneficioRecebido(dados) {
     dados = dados || {};
@@ -17,7 +40,12 @@ function adicionarBeneficioRecebido(dados) {
     bloco.className = 'beneficio-recebido-bloco';
     bloco.dataset.id = contadorBeneficio;
 
-    // Montagem do HTML com a estrutura corrigida
+    // Estado inicial do transformado
+    const transformadoInicial = dados.transformado || 'nao';
+    const dibAntecedenteValor = (transformadoInicial === 'sim') ? (dados.dibAntecedente || '') : '';
+    const readonlyDibAnt = (transformadoInicial === 'sim') ? '' : 'readonly';
+    const bgDibAnt = (transformadoInicial === 'sim') ? 'bg-white' : 'bg-slate-100';
+
     let html = `
         <button type="button" class="btn-remover" onclick="removerBeneficioRecebido(this)">Remover</button>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -54,14 +82,14 @@ function adicionarBeneficioRecebido(dados) {
             </div>
             <div>
                 <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Benefício transformado?</label>
-                <select data-campo="transformado" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                    <option value="nao" ${dados.transformado === 'sim' ? '' : 'selected'}>Não</option>
-                    <option value="sim" ${dados.transformado === 'sim' ? 'selected' : ''}>Sim</option>
+                <select data-campo="transformado" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" onchange="toggleTransformacaoRecebido(this.closest('.beneficio-recebido-bloco'))">
+                    <option value="nao" ${transformadoInicial === 'nao' ? 'selected' : ''}>Não</option>
+                    <option value="sim" ${transformadoInicial === 'sim' ? 'selected' : ''}>Sim</option>
                 </select>
             </div>
             <div>
                 <label class="block text-xs font-bold text-slate-600 uppercase mb-1">DIB antecedente</label>
-                <input type="text" data-campo="dibAntecedente" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="DD/MM/AAAA ou MM/AAAA" oninput="aplicarMascaraData(this, false)" value="${dados.dibAntecedente || ''}">
+                <input type="text" data-campo="dibAntecedente" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${bgDibAnt}" placeholder="DD/MM/AAAA ou MM/AAAA" oninput="aplicarMascaraData(this, false)" value="${dibAntecedenteValor}" ${readonlyDibAnt}>
             </div>
             <div>
                 <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Percentual de desdobramento/cota</label>
@@ -148,25 +176,19 @@ function adicionarBeneficioRecebido(dados) {
     bloco.innerHTML = html;
     container.appendChild(bloco);
 
-    // ===== SELEÇÃO DOS ELEMENTOS (com validação e logs) =====
+    // Aplicar estado inicial do transformado
+    toggleTransformacaoRecebido(bloco);
+
+    // ===== SELEÇÃO DOS ELEMENTOS =====
     const btnCalcular = bloco.querySelector('.btn-calcular-evolucao');
     const btnToggle = bloco.querySelector('.btn-toggle-memoria');
     const divResultado = bloco.querySelector('.resultado-beneficio-recebido');
     const memoriaDiv = bloco.querySelector('.memoria-beneficio-recebido');
 
-    // Logs temporários para auditoria
-    console.log('[adicionarBeneficioRecebido] btnCalcular:', !!btnCalcular);
-    console.log('[adicionarBeneficioRecebido] btnToggle:', !!btnToggle);
-    console.log('[adicionarBeneficioRecebido] divResultado:', !!divResultado);
-    console.log('[adicionarBeneficioRecebido] memoriaDiv:', !!memoriaDiv);
-
-    // Anexa eventos somente se os elementos existirem
     if (btnCalcular) {
         btnCalcular.addEventListener('click', function() {
             calcularBeneficioRecebido(bloco);
         });
-    } else {
-        console.error('[adicionarBeneficioRecebido] btnCalcular é null!');
     }
 
     if (btnToggle) {
@@ -178,8 +200,6 @@ function adicionarBeneficioRecebido(dados) {
                 bloco.dataset.memoriaExpandida = isHidden ? 'true' : 'false';
             }
         });
-    } else {
-        console.error('[adicionarBeneficioRecebido] btnToggle é null!');
     }
 
     // Restaurar estado se houver resultado
@@ -206,7 +226,7 @@ function adicionarBeneficioRecebido(dados) {
 }
 
 // =====================================================================
-// FUNÇÃO QUE CALCULA UM BENEFÍCIO RECEBIDO INDIVIDUAL
+// FUNÇÃO QUE CALCULA UM BENEFÍCIO RECEBIDO INDIVIDUAL (CORRIGIDA)
 // =====================================================================
 function calcularBeneficioRecebido(bloco) {
     try {
@@ -216,13 +236,12 @@ function calcularBeneficioRecebido(bloco) {
 
         const dib = getVal('dib');
         const rmiStr = getVal('rmi');
-        // Data final: usa DCB se preenchida, senão usa a data final da guia Entradas
-        let dataFinalBeneficio = getVal('dcb');
+        const dcb = getVal('dcb'); // mantido apenas para armazenamento
+
+        // DATA FINAL: SEMPRE a da guia Entradas (NÃO usar DCB)
+        const dataFinalBeneficio = document.getElementById('dataFinal').value;
         if (!dataFinalBeneficio || dataFinalBeneficio.length < 7) {
-            dataFinalBeneficio = document.getElementById('dataFinal').value;
-        }
-        if (!dataFinalBeneficio || dataFinalBeneficio.length < 7) {
-            alert('Defina uma DCB ou preencha a Data Final de Evolução na guia Entradas.');
+            alert('Preencha a Data Final de Evolução na guia Entradas.');
             return;
         }
 
@@ -242,7 +261,7 @@ function calcularBeneficioRecebido(bloco) {
         const parametros = {
             dib: dib,
             rmi: rmi,
-            dataFinal: dataFinalBeneficio,
+            dataFinal: dataFinalBeneficio, // <-- CORREÇÃO: usa a data final da guia Entradas
             transformado: transformado,
             dibAntecedente: dibAntecedente,
             tipoBeneficio: tipoBeneficio,
@@ -251,7 +270,7 @@ function calcularBeneficioRecebido(bloco) {
             adicionalPercentual: adicionalPercentual
         };
 
-        // Chama o motor (agora real)
+        // Chama o motor (agora com a data final correta)
         const resultado = evoluirBeneficio(parametros);
 
         // Atualizar a exibição
@@ -303,7 +322,7 @@ function calcularBeneficioRecebido(bloco) {
 }
 
 // =====================================================================
-// COLETA E RESTAURAÇÃO (com resultado)
+// COLETA E RESTAURAÇÃO
 // =====================================================================
 function coletarBeneficiosRecebidos() {
     const blocos = document.querySelectorAll('.beneficio-recebido-bloco');
