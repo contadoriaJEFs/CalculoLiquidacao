@@ -148,38 +148,57 @@ function adicionarBeneficioRecebido(dados) {
     bloco.innerHTML = html;
     container.appendChild(bloco);
 
-    // EVENTOS
+    // ===== SELEÇÃO DOS ELEMENTOS (com validação e logs) =====
     const btnCalcular = bloco.querySelector('.btn-calcular-evolucao');
     const btnToggle = bloco.querySelector('.btn-toggle-memoria');
     const divResultado = bloco.querySelector('.resultado-beneficio-recebido');
     const memoriaDiv = bloco.querySelector('.memoria-beneficio-recebido');
 
-    btnCalcular.addEventListener('click', function() {
-        calcularBeneficioRecebido(bloco);
-    });
+    // Logs temporários para auditoria
+    console.log('[adicionarBeneficioRecebido] btnCalcular:', !!btnCalcular);
+    console.log('[adicionarBeneficioRecebido] btnToggle:', !!btnToggle);
+    console.log('[adicionarBeneficioRecebido] divResultado:', !!divResultado);
+    console.log('[adicionarBeneficioRecebido] memoriaDiv:', !!memoriaDiv);
 
-    btnToggle.addEventListener('click', function() {
-        const isHidden = memoriaDiv.classList.contains('hidden');
-        memoriaDiv.classList.toggle('hidden');
-        this.textContent = isHidden ? 'Ocultar Memória' : 'Exibir Memória';
-        bloco.dataset.memoriaExpandida = isHidden ? 'true' : 'false';
-    });
+    // Anexa eventos somente se os elementos existirem
+    if (btnCalcular) {
+        btnCalcular.addEventListener('click', function() {
+            calcularBeneficioRecebido(bloco);
+        });
+    } else {
+        console.error('[adicionarBeneficioRecebido] btnCalcular é null!');
+    }
+
+    if (btnToggle) {
+        btnToggle.addEventListener('click', function() {
+            const isHidden = memoriaDiv ? memoriaDiv.classList.contains('hidden') : true;
+            if (memoriaDiv) {
+                memoriaDiv.classList.toggle('hidden');
+                this.textContent = isHidden ? 'Ocultar Memória' : 'Exibir Memória';
+                bloco.dataset.memoriaExpandida = isHidden ? 'true' : 'false';
+            }
+        });
+    } else {
+        console.error('[adicionarBeneficioRecebido] btnToggle é null!');
+    }
 
     // Restaurar estado se houver resultado
-    if (resultado) {
+    if (resultado && divResultado) {
         divResultado.classList.remove('hidden');
-        if (memoriaExpandida) {
+        if (memoriaExpandida && memoriaDiv) {
             memoriaDiv.classList.remove('hidden');
             btnToggle.textContent = 'Ocultar Memória';
-        } else {
+        } else if (memoriaDiv) {
             memoriaDiv.classList.add('hidden');
             btnToggle.textContent = 'Exibir Memória';
         }
         bloco.dataset.memoriaExpandida = memoriaExpandida ? 'true' : 'false';
-    } else {
+    } else if (divResultado) {
         divResultado.classList.add('hidden');
-        memoriaDiv.classList.add('hidden');
-        btnToggle.textContent = 'Exibir Memória';
+        if (memoriaDiv) {
+            memoriaDiv.classList.add('hidden');
+            btnToggle.textContent = 'Exibir Memória';
+        }
         bloco.dataset.memoriaExpandida = 'false';
     }
 
