@@ -73,18 +73,9 @@ function calcularEvolucao(parametros) {
         dibReferencia = dibAntObj;
     }
 
-    // 4) Verificar cobertura de índices e vigências
-    const anosDisponiveis = Object.keys(indicesAtivos).map(Number);
-    const maxAno = Math.max(...anosDisponiveis);
-    if (finalObj.ano > maxAno) {
-        throw new Error(`Base de índices só vai até ${maxAno}.`);
-    }
-    const limitadoresFinal = obterLimitadores(strDataFinal);
-    if (!limitadoresFinal) {
-        throw new Error(`Sem cobertura de salário mínimo/teto para ${strDataFinal}.`);
-    }
+    const chaveDibRef = getChaveCronologica(dibReferencia.mes, dibReferencia.ano);
 
-    // 5) Ordenar tabelas
+    // 4) Ordenar tabelas de índices
     let tabelasOrdenadas = Object.keys(indicesAtivos).map(anoKey => {
         let item = indicesAtivos[anoKey];
         let [mesComp, anoComp] = item.competencia.split('/').map(Number);
@@ -97,13 +88,24 @@ function calcularEvolucao(parametros) {
         };
     }).sort((a, b) => a.chaveCronologica - b.chaveCronologica);
 
-    let ultimaTabela = tabelasOrdenadas[tabelasOrdenadas.length - 1];
-    const chaveDibRef = getChaveCronologica(dibReferencia.mes, dibReferencia.ano);
-    if (chaveDibRef >= ultimaTabela.chaveCronologica) {
-        throw new Error("Não existe tabela de reajuste para a data informada.");
+    // 5) Verificar se existe pelo menos uma tabela posterior à DIB de referência
+    const tabelasPosteriores = tabelasOrdenadas.filter(tab => tab.chaveCronologica > chaveDibRef);
+    if (tabelasPosteriores.length === 0) {
+        // Nenhum reajuste aplicável: retorna valores padrão
+        return {
+            memoria: [],
+            rmaFinal: rmi,
+            statusFinal: "NORMAL",
+            qtdReajustes: 0,
+            ultimoReajuste: "-",
+            ultimoIndice: null
+        };
     }
 
-    // 6) Executar evolução
+    // 6) Verificar se a Data Final tem cobertura de salário mínimo/teto (apenas se houver reajustes)
+    //    Mas a verificação de vigências é feita dentro do loop, então não precisamos validar aqui.
+
+    // 7) Executar evolução normalmente
     let valorAtual = rmi;
     let statusAtual = "NORMAL";
     let indiceTetoGuardado = null;
@@ -114,10 +116,12 @@ function calcularEvolucao(parametros) {
     let ultimoReajusteCompetencia = '';
     let ultimoIndiceAplicado = null;
 
-    for (let tab of tabelasOrdenadas) {
-        if (tab.chaveCronologica <= chaveDibRef) continue;
-        if (tab.chaveCronologica > chaveFinal) break;
+    // Filtrar tabelas que estão dentro do intervalo (DIBRef < competencia <= DataFinal)
+    const tabelasIntervalo = tabelasOrdenadas.filter(tab => 
+        tab.chaveCronologica > chaveDibRef && tab.chaveCronologica <= chaveFinal
+    );
 
+    for (let tab of tabelasIntervalo) {
         const limitadores = obterLimitadores(tab.competencia);
         if (!limitadores) {
             throw new Error(`Sem vigência para ${tab.competencia}.`);
@@ -235,7 +239,7 @@ function calcularEvolucao(parametros) {
         ultimoIndiceAplicado = indiceAplicado;
     }
 
-    // 7) Resultado
+    // 8) Resultado
     const rmaFinal = memoria.length ? memoria[memoria.length - 1].valorFinal : rmi;
     const statusFinal = memoria.length ? memoria[memoria.length - 1].status : "NORMAL";
     const ultimoReajuste = ultimoReajusteCompetencia || "-";
@@ -250,7 +254,6 @@ function calcularEvolucao(parametros) {
         ultimoIndice
     };
 }
-
 // ---------------------------------------------------------------------
 // FUNÇÃO DE SEGURANÇA PARA A GUI "ENTRADAS"
 // ---------------------------------------------------------------------
