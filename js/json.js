@@ -46,7 +46,7 @@ function coletarDadosCaso() {
         evolucaoDevida: {
             // Parâmetros utilizados (opcionais)
         },
-        beneficiosRecebidos: [],
+        beneficiosRecebidos: coletarBeneficiosRecebidos(),
         diferencas: {},
         atualizacao: {
             dataAtualizacao: document.getElementById('dataAtualizacao2').value,
@@ -207,18 +207,11 @@ function importarCaso(event) {
             document.getElementById('dataReferenciaRenuncia').value = ren.dataReferencia || '';
             document.getElementById('obsRenuncia').value = ren.observacoes || '';
 
-            // Benefícios recebidos (se houver)
-            const brs = dados.beneficiosRecebidos || [];
-            const container = document.getElementById('containerBeneficiosRecebidos');
-            if (container) {
-                container.innerHTML = '';
-                brs.forEach(b => {
-                    adicionarBeneficioRecebido();
-                    // Preencher os campos do último bloco (simplificado)
-                    const blocos = container.querySelectorAll('.beneficio-recebido-bloco');
-                    const ultimo = blocos[blocos.length - 1];
-                    // Mapeamento pode ser expandido conforme necessidade
-                });
+            // BENEFÍCIOS RECEBIDOS – restauração completa
+            if (dados.beneficiosRecebidos) {
+                restaurarBeneficiosRecebidos(dados.beneficiosRecebidos);
+            } else {
+                restaurarBeneficiosRecebidos([]);
             }
 
             if (!termoManual) calcularTermoInicial();
@@ -234,5 +227,6 @@ function importarCaso(event) {
 function novoCaso() {
     if (confirm('Limpar todos os dados do caso atual?')) {
         limparFormulario();
+        restaurarBeneficiosRecebidos([]);
     }
 }
