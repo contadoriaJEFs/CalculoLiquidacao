@@ -17,7 +17,8 @@ function adicionarBeneficioRecebido(dados) {
     bloco.className = 'beneficio-recebido-bloco';
     bloco.dataset.id = contadorBeneficio;
 
-    bloco.innerHTML = `
+    // Montagem do HTML com a estrutura corrigida
+    let html = `
         <button type="button" class="btn-remover" onclick="removerBeneficioRecebido(this)">Remover</button>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
@@ -84,8 +85,16 @@ function adicionarBeneficioRecebido(dados) {
             </div>
         </div>
 
-        <!-- ÁREA DE RESULTADO (contém os botões e a memória) -->
-        <div class="resultado-beneficio-recebido mt-4 border-t border-slate-200 pt-3 ${resultado ? '' : 'hidden'}">
+        <!-- BOTÕES (sempre visíveis) -->
+        <div class="flex flex-wrap items-center gap-2 mt-3 border-t border-slate-200 pt-3">
+            <button class="btn-calcular-evolucao px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition">Calcular Evolução</button>
+            <button class="btn-toggle-memoria px-3 py-1 bg-slate-600 text-white text-xs rounded hover:bg-slate-700 transition">${memoriaExpandida ? 'Ocultar' : 'Exibir'} Memória</button>
+        </div>
+    `;
+
+    // ÁREA DE RESULTADO (inicialmente oculta)
+    html += `
+        <div class="resultado-beneficio-recebido mt-3 ${resultado ? '' : 'hidden'}">
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <div>
                     <span class="text-xs font-bold text-slate-500">RMA Final:</span>
@@ -93,20 +102,12 @@ function adicionarBeneficioRecebido(dados) {
                     <span class="text-xs font-bold text-slate-500 ml-3">Status:</span>
                     <span class="status-badge ${resultado ? (resultado.statusFinal === 'LIMITADO_TETO' ? 'status-teto' : resultado.statusFinal === 'PISO' ? 'status-piso' : 'status-normal') : 'status-normal'} status-final">${resultado ? (resultado.statusFinal === 'LIMITADO_TETO' ? 'TETO' : resultado.statusFinal) : 'NORMAL'}</span>
                 </div>
-                <div class="flex gap-2">
-                    <!-- BOTÃO "CALCULAR EVOLUÇÃO" -->
-                    <button class="btn-calcular-evolucao px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition">Calcular Evolução</button>
-                    <!-- BOTÃO "OCULTAR/EXIBIR MEMÓRIA" -->
-                    <button class="btn-toggle-memoria px-3 py-1 bg-slate-600 text-white text-xs rounded hover:bg-slate-700 transition">${memoriaExpandida ? 'Ocultar' : 'Exibir'} Memória</button>
-                </div>
             </div>
-            <!-- RESUMO INDIVIDUAL -->
             <div class="resumo-beneficio-recebido mt-2 text-xs text-slate-600 flex flex-wrap gap-4">
                 <span>Reajustes: <strong class="qtd-reajustes">${resultado ? resultado.qtdReajustes : 0}</strong></span>
                 <span>Último reajuste: <strong class="ultimo-reajuste">${resultado ? resultado.ultimoReajuste : '-'}</strong></span>
                 <span>Último índice: <strong class="ultimo-indice">${resultado && resultado.ultimoIndice !== null ? resultado.ultimoIndice.toFixed(4) : '-'}</strong></span>
             </div>
-            <!-- MEMÓRIA INDIVIDUAL -->
             <div class="memoria-beneficio-recebido mt-3 overflow-x-auto ${memoriaExpandida ? '' : 'hidden'}">
                 <table class="w-full text-left border-collapse text-xs memoria-tabela">
                     <thead>
@@ -144,7 +145,46 @@ function adicionarBeneficioRecebido(dados) {
         </div>
     `;
 
+    bloco.innerHTML = html;
     container.appendChild(bloco);
+
+    // EVENTOS
+    const btnCalcular = bloco.querySelector('.btn-calcular-evolucao');
+    const btnToggle = bloco.querySelector('.btn-toggle-memoria');
+    const divResultado = bloco.querySelector('.resultado-beneficio-recebido');
+    const memoriaDiv = bloco.querySelector('.memoria-beneficio-recebido');
+
+    btnCalcular.addEventListener('click', function() {
+        calcularBeneficioRecebido(bloco);
+    });
+
+    btnToggle.addEventListener('click', function() {
+        const isHidden = memoriaDiv.classList.contains('hidden');
+        memoriaDiv.classList.toggle('hidden');
+        this.textContent = isHidden ? 'Ocultar Memória' : 'Exibir Memória';
+        bloco.dataset.memoriaExpandida = isHidden ? 'true' : 'false';
+    });
+
+    // Restaurar estado se houver resultado
+    if (resultado) {
+        divResultado.classList.remove('hidden');
+        if (memoriaExpandida) {
+            memoriaDiv.classList.remove('hidden');
+            btnToggle.textContent = 'Ocultar Memória';
+        } else {
+            memoriaDiv.classList.add('hidden');
+            btnToggle.textContent = 'Exibir Memória';
+        }
+        bloco.dataset.memoriaExpandida = memoriaExpandida ? 'true' : 'false';
+    } else {
+        divResultado.classList.add('hidden');
+        memoriaDiv.classList.add('hidden');
+        btnToggle.textContent = 'Exibir Memória';
+        bloco.dataset.memoriaExpandida = 'false';
+    }
+
+    return bloco;
+}
 
     // EVENTOS DO BLOCO
     const btnCalcular = bloco.querySelector('.btn-calcular-evolucao');
