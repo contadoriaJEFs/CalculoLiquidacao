@@ -186,41 +186,6 @@ function adicionarBeneficioRecebido(dados) {
     return bloco;
 }
 
-    // EVENTOS DO BLOCO
-    const btnCalcular = bloco.querySelector('.btn-calcular-evolucao');
-    const btnToggle = bloco.querySelector('.btn-toggle-memoria');
-    const divResultado = bloco.querySelector('.resultado-beneficio-recebido');
-
-    btnCalcular.addEventListener('click', function() {
-        calcularBeneficioRecebido(bloco);
-    });
-
-    btnToggle.addEventListener('click', function() {
-        const memoriaDiv = bloco.querySelector('.memoria-beneficio-recebido');
-        const isHidden = memoriaDiv.classList.contains('hidden');
-        memoriaDiv.classList.toggle('hidden');
-        this.textContent = isHidden ? 'Ocultar Memória' : 'Exibir Memória';
-        bloco.dataset.memoriaExpandida = isHidden ? 'true' : 'false';
-    });
-
-    if (resultado) {
-        divResultado.classList.remove('hidden');
-        if (memoriaExpandida) {
-            bloco.querySelector('.memoria-beneficio-recebido').classList.remove('hidden');
-            btnToggle.textContent = 'Ocultar Memória';
-        } else {
-            bloco.querySelector('.memoria-beneficio-recebido').classList.add('hidden');
-            btnToggle.textContent = 'Exibir Memória';
-        }
-        bloco.dataset.memoriaExpandida = memoriaExpandida ? 'true' : 'false';
-    } else {
-        divResultado.classList.add('hidden');
-        bloco.dataset.memoriaExpandida = 'false';
-    }
-
-    return bloco;
-}
-
 // =====================================================================
 // FUNÇÃO QUE CALCULA UM BENEFÍCIO RECEBIDO INDIVIDUAL
 // =====================================================================
