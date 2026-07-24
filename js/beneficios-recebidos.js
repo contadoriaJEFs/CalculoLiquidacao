@@ -5,7 +5,6 @@
 var contadorBeneficio = 0;
 
 function adicionarBeneficioRecebido(dados) {
-    // Se dados for fornecido, usa-os; senão, cria vazio
     dados = dados || {};
     contadorBeneficio++;
     const container = document.getElementById('containerBeneficiosRecebidos');
@@ -52,7 +51,7 @@ function adicionarBeneficioRecebido(dados) {
             <div>
                 <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Benefício transformado?</label>
                 <select data-campo="transformado" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                    <option value="nao" ${dados.transformado === 'nao' ? 'selected' : ''}>Não</option>
+                    <option value="nao" ${dados.transformado === 'sim' ? '' : 'selected'}>Não</option>
                     <option value="sim" ${dados.transformado === 'sim' ? 'selected' : ''}>Sim</option>
                 </select>
             </div>
@@ -96,21 +95,23 @@ function removerBeneficioRecebido(botao) {
 function coletarBeneficiosRecebidos() {
     const blocos = document.querySelectorAll('.beneficio-recebido-bloco');
     const resultados = [];
+
+    // Para cada bloco, extrai os dados
     blocos.forEach(bloco => {
         const campos = bloco.querySelectorAll('[data-campo]');
         const dados = {};
+
         campos.forEach(el => {
-            const nome = el.dataset.campo;
-            if (el.tagName === 'SELECT') {
-                dados[nome] = el.value;
-            } else if (el.tagName === 'TEXTAREA') {
-                dados[nome] = el.value;
-            } else if (el.tagName === 'INPUT') {
-                dados[nome] = el.value;
-            }
+            const nome = el.getAttribute('data-campo');
+            // Para input, select e textarea, o valor é sempre .value
+            dados[nome] = el.value;
         });
+
+        // Se o bloco tiver pelo menos um campo preenchido, adiciona ao resultado
+        // (ou sempre adiciona, mesmo vazio, para preservar a estrutura)
         resultados.push(dados);
     });
+
     return resultados;
 }
 
@@ -118,12 +119,12 @@ function restaurarBeneficiosRecebidos(dados) {
     const container = document.getElementById('containerBeneficiosRecebidos');
     if (!container) return;
     container.innerHTML = '';
-    if (!dados || !Array.isArray(dados)) return;
+    if (!dados || !Array.isArray(dados) || dados.length === 0) {
+        // Adiciona um bloco vazio como exemplo
+        adicionarBeneficioRecebido({});
+        return;
+    }
     dados.forEach(item => {
         adicionarBeneficioRecebido(item);
     });
-    // Se não houver dados, adiciona um bloco vazio como exemplo
-    if (dados.length === 0) {
-        adicionarBeneficioRecebido({});
-    }
 }
