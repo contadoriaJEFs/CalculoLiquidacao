@@ -320,8 +320,12 @@ function montarTabelaDiferencas() {
         tbody.appendChild(tr);
     });
 
-    // Atualizar resumo (usa a regra correta)
-    atualizarResumo();
+    document.getElementById('totalDevido').textContent = formatarMoeda(totalDevido);
+    document.getElementById('totalRecebido').textContent = formatarMoeda(totalRecebido);
+    const diffTotal = totalDevido - totalRecebido;
+    document.getElementById('diferencaTotal').textContent = formatarMoeda(diffTotal);
+    document.getElementById('qtdCompetencias').textContent = listaCompetencias.length;
+    document.getElementById('qtdEditadas').textContent = qtdEditadas;
     resumoDiv.classList.remove('hidden');
 }
 
@@ -364,13 +368,11 @@ function recalcularLinha(tr, beneficiosRecebidos) {
 }
 
 // =====================================================================
-// ATUALIZAR RESUMO GERAL (CORRIGIDO)
+// ATUALIZAR RESUMO GERAL
 // =====================================================================
 
 function atualizarResumo() {
-    let totalDevido = 0, totalRecebido = 0, totalDiferenca = 0, qtdEditadas = 0;
-    const modo = dadosDiferencas.modoCompensacao;
-
+    let totalDevido = 0, totalRecebido = 0, qtdEditadas = 0;
     document.querySelectorAll('#corpoDiferencas tr').forEach(tr => {
         const tds = tr.querySelectorAll('td');
         if (tds.length < 3) return;
@@ -378,24 +380,13 @@ function atualizarResumo() {
         const total = parseFloat(tds[tds.length-2].textContent.replace(/\./g, '').replace(',', '.')) || 0;
         totalDevido += devido;
         totalRecebido += total;
-
-        // Calcular diferença da linha conforme modo atual
-        let diffLinha = 0;
-        if (modo === 'limite') {
-            diffLinha = Math.max(0, devido - total);
-        } else {
-            diffLinha = devido - total;
-        }
-        totalDiferenca += diffLinha;
-
         tds.forEach(td => {
             if (td.classList.contains('celula-editada')) qtdEditadas++;
         });
     });
-
     document.getElementById('totalDevido').textContent = formatarMoeda(totalDevido);
     document.getElementById('totalRecebido').textContent = formatarMoeda(totalRecebido);
-    document.getElementById('diferencaTotal').textContent = formatarMoeda(totalDiferenca);
+    document.getElementById('diferencaTotal').textContent = formatarMoeda(totalDevido - totalRecebido);
     document.getElementById('qtdEditadas').textContent = qtdEditadas;
 }
 

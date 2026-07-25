@@ -43,8 +43,11 @@ function coletarDadosCaso() {
                 dataFinalEvolucao: document.getElementById('dataFinal').value
             }
         },
-        evolucaoDevida: {},
+        evolucaoDevida: {
+            // Parâmetros utilizados (opcionais)
+        },
         beneficiosRecebidos: coletarBeneficiosRecebidos(),
+        // === CORREÇÃO: Incluir dados da Guia 4 ===
         diferencas: coletarDadosDiferencas(),
         atualizacao: {
             dataAtualizacao: document.getElementById('dataAtualizacao2').value,
@@ -212,24 +215,13 @@ function importarCaso(event) {
                 restaurarBeneficiosRecebidos([]);
             }
 
-            // Restaurar dados da Guia 4
+            // === CORREÇÃO: Restaurar dados da Guia 4 ===
             if (dados.diferencas) {
                 restaurarDadosDiferencas(dados.diferencas);
             }
 
             if (!termoManual) calcularTermoInicial();
-
             alert('Dados do caso importados com sucesso!');
-
-            // ===== RECÁLCULO AUTOMÁTICO APÓS IMPORTAÇÃO =====
-            setTimeout(function() {
-                if (typeof recalcularCasoCompleto === 'function') {
-                    recalcularCasoCompleto();
-                } else {
-                    console.warn('[IMPORTAR] Função recalcularCasoCompleto não disponível.');
-                }
-            }, 300);
-
         } catch (error) {
             alert('Erro ao importar o arquivo: ' + error.message);
         }
@@ -242,6 +234,7 @@ function novoCaso() {
     if (confirm('Limpar todos os dados do caso atual?')) {
         limparFormulario();
         restaurarBeneficiosRecebidos([]);
+        // também limpar dados da Guia 4
         dadosDiferencas.modoCompensacao = 'limite';
         dadosDiferencas.celulasEditadas = {};
         document.querySelector('input[name="modoCompensacao"][value="limite"]').checked = true;
