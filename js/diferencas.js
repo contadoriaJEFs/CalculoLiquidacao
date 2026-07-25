@@ -320,8 +320,9 @@ function montarTabelaDiferencas() {
         tbody.appendChild(tr);
     });
 
-    // Atualizar resumo (usa a regra correta)
+    // Atualiza o resumo de modo delegado à função unificada
     atualizarResumo();
+    document.getElementById('qtdCompetencias').textContent = listaCompetencias.length;
     resumoDiv.classList.remove('hidden');
 }
 
@@ -364,38 +365,38 @@ function recalcularLinha(tr, beneficiosRecebidos) {
 }
 
 // =====================================================================
-// ATUALIZAR RESUMO GERAL (CORRIGIDO)
+// ATUALIZAR RESUMO GERAL
 // =====================================================================
 
 function atualizarResumo() {
-    let totalDevido = 0, totalRecebido = 0, totalDiferenca = 0, qtdEditadas = 0;
-    const modo = dadosDiferencas.modoCompensacao;
-
+    let totalDevido = 0, totalRecebido = 0, diferencaTotal = 0, qtdEditadas = 0;
+    
     document.querySelectorAll('#corpoDiferencas tr').forEach(tr => {
         const tds = tr.querySelectorAll('td');
-        if (tds.length < 3) return;
+        if (tds.length < 3) return; // Ignora a linha de placeholder vazia
+        
         const devido = parseFloat(tds[1].textContent.replace(/\./g, '').replace(',', '.')) || 0;
+        // A penúltima coluna é sempre o "Total Recebido"
         const total = parseFloat(tds[tds.length-2].textContent.replace(/\./g, '').replace(',', '.')) || 0;
+        
         totalDevido += devido;
         totalRecebido += total;
-
-        // Calcular diferença da linha conforme modo atual
-        let diffLinha = 0;
-        if (modo === 'limite') {
-            diffLinha = Math.max(0, devido - total);
+        
+        // Aplica a regra de compensação competência por competência
+        if (dadosDiferencas.modoCompensacao === 'limite') {
+            diferencaTotal += Math.max(0, devido - total);
         } else {
-            diffLinha = devido - total;
+            diferencaTotal += (devido - total);
         }
-        totalDiferenca += diffLinha;
-
+        
         tds.forEach(td => {
             if (td.classList.contains('celula-editada')) qtdEditadas++;
         });
     });
-
+    
     document.getElementById('totalDevido').textContent = formatarMoeda(totalDevido);
     document.getElementById('totalRecebido').textContent = formatarMoeda(totalRecebido);
-    document.getElementById('diferencaTotal').textContent = formatarMoeda(totalDiferenca);
+    document.getElementById('diferencaTotal').textContent = formatarMoeda(diferencaTotal);
     document.getElementById('qtdEditadas').textContent = qtdEditadas;
 }
 
