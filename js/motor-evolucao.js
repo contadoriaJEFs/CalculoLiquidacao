@@ -297,6 +297,9 @@ function executarCalculo() {
 function exibirResultado(resultado, parametros) {
     const { memoria, rmaFinal, statusFinal, qtdReajustes, ultimoReajuste, ultimoIndice } = resultado;
 
+    // === CORREÇÃO: Armazenar a memória globalmente para a Guia 4 ===
+    window.memoriaEvolucaoDevida = memoria;
+
     // Identificação do cálculo
     const divIdent = document.getElementById('identificacaoCalculo');
     if (divIdent) {
