@@ -12,9 +12,7 @@ function ativarGuia(nomeGuia) {
         div.classList.toggle('ativo', div.id === 'guia-' + nomeGuia);
     });
 
-    // === CORREÇÃO: Montar a Guia 4 ao acessar a aba Diferenças ===
     if (nomeGuia === 'diferencas') {
-        // Se a função existir, montar a tabela
         if (typeof montarTabelaDiferencas === 'function') {
             montarTabelaDiferencas();
         }
@@ -90,7 +88,7 @@ document.addEventListener('DOMContentLoaded', function() {
         dataAtualizacao.addEventListener('input', sincronizarDataFinal);
     }
 
-    // === CORREÇÃO: Inicializar a Guia 4 ===
+    // Inicialização da Guia 4
     if (typeof initGuiaDiferencas === 'function') {
         initGuiaDiferencas();
     }
@@ -122,7 +120,6 @@ document.addEventListener('DOMContentLoaded', function() {
     termoInicialManual = false;
     calcularTermoInicial();
 
-    // Se a guia atual for "diferencas" (ex: recarregar a página com a guia ativa), montar a tabela
     const guiaAtiva = document.querySelector('.nav-guia button.ativo');
     if (guiaAtiva && guiaAtiva.dataset.guia === 'diferencas') {
         if (typeof montarTabelaDiferencas === 'function') {
@@ -130,17 +127,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+
 // =====================================================================
-// RECALCULAR CASO COMPLETO (automação do fluxo)
+// RECALCULAR CASO COMPLETO (automação do fluxo) – CORRIGIDO
 // =====================================================================
 
 function recalcularCasoCompleto() {
     console.log('[RECALCULO] Iniciando recálculo completo do caso...');
 
     try {
-        // 1. Executar Evolução Devida
+        // 1. Executar Evolução Devida (verificar retorno)
         console.log('[RECALCULO] 1. Calculando Evolução Devida...');
-        executarCalculo();
+        const sucesso = executarCalculo();
+
+        if (!sucesso) {
+            console.warn('[RECALCULO] Evolução Devida falhou. Abortando recálculo.');
+            alert('Não foi possível recalcular o caso. Verifique os erros na guia Entradas.');
+            ativarGuia('entradas');
+            return;
+        }
 
         // 2. Executar evolução de todos os benefícios da Guia 3
         const blocos = document.querySelectorAll('.beneficio-recebido-bloco');
@@ -162,7 +167,7 @@ function recalcularCasoCompleto() {
         ativarGuia('diferencas');
         console.log('[RECALCULO] 4. Guia 4 ativada.');
 
-        // 5. Mensagem de sucesso
+        // 5. Mensagem de sucesso (só chega aqui se tudo ocorreu bem)
         alert('Caso recalculado com sucesso.');
 
     } catch (erro) {
