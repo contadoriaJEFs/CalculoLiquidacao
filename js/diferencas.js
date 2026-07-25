@@ -1,351 +1,318 @@
 // =====================================================================
-// GUIA 4 – DIFERENÇAS
+// DIFERENÇAS – GUIA 4
 // =====================================================================
 
-var modoCompensacao = 'limite'; // 'limite' ou 'negativo'
-var celulasEditadas = {};
+var dadosDiferencas = {
+    modoCompensacao: 'limite', // 'limite' ou 'negativo'
+    celulasEditadas: {},       // { competencia: { colunaId: valor } }
+};
 
-// =====================================================================
-// FUNÇÃO PRINCIPAL – MONTAR TABELA
-// =====================================================================
+// Função principal para montar a tabela
 function montarTabelaDiferencas() {
-    // 1) Buscar memórias
-    const memoriaDevida = obterMemoriaDevida();
-    const beneficiosRecebidos = obterMemoriasRecebidas();
-
-    // 2) Se não houver memória devida, exibir mensagem
-    if (!memoriaDevida || memoriaDevida.length === 0) {
-        exibirMensagemSemDados();
+    // 1. Obter memória da Evolução Devida
+    const memoriaDevida = window.memoriaEvolucaoDevida || [];
+    if (!memoriaDevida.length) {
+        document.getElementById('corpoDiferencas').innerHTML = `<tr><td colspan="10" class="p-4 text-center text-slate-400">Nenhum cálculo de evolução devida encontrado. Calcule a Evolução Devida primeiro.</td></tr>`;
+        document.getElementById('resumoDiferencas').classList.add('hidden');
         return;
     }
 
-    // 3) Ordenar competências (crescente)
-    const competencias = memoriaDevida.map(item => item.competencia).sort(ordenarCompetencias);
-
-    // 4) Montar cabeçalho
-    const cabecalho = montarCabecalho(beneficiosRecebidos);
-
-    // 5) Montar linhas
-    const linhas = competencias.map(competencia => {
-        const devido = encontrarValor(memoriaDevida, competencia, 'valorFinal');
-        const recebidos = beneficiosRecebidos.map(ben => {
-            const valor = encontrarValor(ben.memoria, competencia, 'valorFinal');
-            // Verificar se há edição manual
-            const chave = `${ben.id}_${competencia}`;
-            return celulasEditadas[chave] !== undefined ? celulasEditadas[chave] : valor;
-        });
-        const totalRecebido = recebidos.reduce((s, v) => s + v, 0);
-        const diferenca = calcularDiferenca(devido, totalRecebido);
-        return {
-            competencia,
-            devido,
-            recebidos,
-            totalRecebido,
-            diferenca
-        };
-    });
-
-    // 6) Renderizar tabela
-    renderizarTabela(cabecalho, linhas, beneficiosRecebidos);
-
-    // 7) Atualizar resumo
-    atualizarResumo(linhas);
-
-    // 8) Restaurar edições salvas no JSON
-    restaurarEdicoes();
-}
-
-// =====================================================================
-// FUNÇÕES AUXILIARES
-// =====================================================================
-function obterMemoriaDevida() {
-    // Busca a memória da Evolução Devida (guia 2)
-    // A memória está em window.memoriaDevida (definida em motor-evolucao.js)
-    if (window.memoriaDevida && window.memoriaDevida.length > 0) {
-        return window.memoriaDevida;
-    }
-    // Tentar buscar do painel de resultado
-    const tbody = document.getElementById('tabelaMemoria');
-    if (tbody) {
-        const linhas = tbody.querySelectorAll('tr');
-        if (linhas.length > 0 && !linhas[0].textContent.includes('Nenhum')) {
-            // Extrair dados da tabela (fallback)
-            return extrairMemoriaDaTabela(tbody);
-        }
-    }
-    return [];
-}
-
-function obterMemoriasRecebidas() {
-    const beneficios = [];
-    const blocos = document.querySelectorAll('.beneficio-recebido-bloco');
-    blocos.forEach(bloco => {
-        const nb = bloco.querySelector('[data-campo="nb"]')?.value || 'Sem NB';
-        const especie = bloco.querySelector('[data-campo="especie"]')?.value || 'Sem Espécie';
+    // 2. Obter memórias dos benefícios recebidos
+    const beneficiosRecebidos = [];
+    document.querySelectorAll('.beneficio-recebido-bloco').forEach(bloco => {
         const resultadoStr = bloco.dataset.resultado;
-        let memoria = [];
         if (resultadoStr) {
             try {
                 const resultado = JSON.parse(resultadoStr);
-                memoria = resultado.memoria || [];
-            } catch (e) {}
+                if (resultado.memoria && resultado.memoria.length) {
+                    const nb = bloco.querySelector('[data-campo="nb"]')?.value || 'Benefício';
+                    const especie = bloco.querySelector('[data-campo="especie"]')?.value || '';
+                    const id = bloco.dataset.id || `ben-${beneficiosRecebidos.length+1}`;
+                    beneficiosRecebidos.push({
+                        id,
+                        nb,
+                        especie,
+                        memoria: resultado.memoria,
+                        label: `NB ${nb} ${especie ? 'ESPÉCIE ' + especie : ''}`.trim()
+                    });
+                }
+            } catch(e) {}
         }
-        // Identificador único
-        const id = `ben_${beneficios.length}`;
-        beneficios.push({
-            id,
-            nb,
-            especie,
-            memoria,
-            bloco
+    });
+
+    // 3. Montar cabeçalho da tabela (colunas dinâmicas)
+    const thead = document.querySelector('#tabelaDiferencas thead tr');
+    // Limpar colunas antigas (manter Competência e Benefício Devido)
+    const colunasFixas = ['Competência', 'Benefício Devido'];
+    // Remover colunas dinâmicas, Total Recebido, Diferença e Observações
+    const cabecalhoAtual = thead.querySelectorAll('th');
+    // Manter apenas as duas primeiras (Competência e Benefício Devido)
+    while (thead.children.length > 2) {
+        thead.removeChild(thead.lastChild);
+    }
+
+    // Adicionar colunas para cada benefício recebido
+    beneficiosRecebidos.forEach((ben, idx) => {
+        const th = document.createElement('th');
+        th.className = 'p-3 min-w-[110px]';
+        th.textContent = ben.label || `Benefício Recebido ${idx+1}`;
+        th.dataset.beneficioId = ben.id;
+        thead.appendChild(th);
+    });
+
+    // Adicionar colunas fixas: Total Recebido, Diferença, Observações
+    const thTotal = document.createElement('th');
+    thTotal.className = 'p-3 min-w-[110px]';
+    thTotal.textContent = 'Total Recebido';
+    thead.appendChild(thTotal);
+
+    const thDiff = document.createElement('th');
+    thDiff.className = 'p-3 min-w-[110px]';
+    thDiff.textContent = 'Diferença Devida';
+    thead.appendChild(thDiff);
+
+    const thObs = document.createElement('th');
+    thObs.className = 'p-3 min-w-[100px]';
+    thObs.textContent = 'Observações';
+    thead.appendChild(thObs);
+
+    // 4. Montar corpo da tabela
+    const tbody = document.getElementById('corpoDiferencas');
+    tbody.innerHTML = '';
+
+    // Mapear memórias por competência para acesso rápido
+    const mapMemoriaDevida = {};
+    memoriaDevida.forEach(item => {
+        mapMemoriaDevida[item.competencia] = item.valorFinal;
+    });
+
+    const mapMemoriasRecebidas = {};
+    beneficiosRecebidos.forEach(ben => {
+        const map = {};
+        ben.memoria.forEach(item => {
+            map[item.competencia] = item.valorFinal;
+        });
+        mapMemoriasRecebidas[ben.id] = map;
+    });
+
+    // Para cada competência na memória devida, criar uma linha
+    const competencias = Object.keys(mapMemoriaDevida).sort(); // ordenar cronologicamente
+    let totalDevido = 0;
+    let totalRecebido = 0;
+    let qtdEditadas = 0;
+
+    competencias.forEach(comp => {
+        const devido = mapMemoriaDevida[comp] || 0;
+        totalDevido += devido;
+
+        const tr = document.createElement('tr');
+        tr.dataset.competencia = comp;
+
+        // Coluna Competência
+        const tdComp = document.createElement('td');
+        tdComp.className = 'p-3 font-semibold sticky-left bg-white';
+        tdComp.textContent = comp;
+        tr.appendChild(tdComp);
+
+        // Coluna Benefício Devido
+        const tdDevido = document.createElement('td');
+        tdDevido.className = 'p-3';
+        tdDevido.textContent = formatarNumero(devido);
+        tr.appendChild(tdDevido);
+
+        // Colunas para cada benefício recebido
+        let somaRecebido = 0;
+        const valoresRecebidos = {};
+
+        beneficiosRecebidos.forEach(ben => {
+            const td = document.createElement('td');
+            td.className = 'p-3';
+            td.dataset.beneficioId = ben.id;
+
+            const valorOriginal = mapMemoriasRecebidas[ben.id]?.[comp] || 0;
+            let valorExibido = valorOriginal;
+
+            // Verificar se há edição manual para esta célula
+            const chaveCelula = `${comp}|${ben.id}`;
+            if (dadosDiferencas.celulasEditadas[chaveCelula] !== undefined) {
+                valorExibido = dadosDiferencas.celulasEditadas[chaveCelula];
+                td.classList.add('celula-editada');
+                qtdEditadas++;
+            }
+
+            // Criar input editável
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = formatarNumero(valorExibido);
+            input.className = 'w-full bg-transparent';
+            input.addEventListener('focus', function() {
+                this.select();
+            });
+            input.addEventListener('blur', function() {
+                let novoValor = parseFloat(this.value.replace(/\./g, '').replace(',', '.'));
+                if (isNaN(novoValor)) novoValor = 0;
+                novoValor = Math.round(novoValor * 100) / 100;
+                const chave = `${comp}|${ben.id}`;
+                if (novoValor !== valorOriginal) {
+                    dadosDiferencas.celulasEditadas[chave] = novoValor;
+                    td.classList.add('celula-editada');
+                } else {
+                    delete dadosDiferencas.celulasEditadas[chave];
+                    td.classList.remove('celula-editada');
+                }
+                // Recalcular linha
+                recalcularLinha(tr, beneficiosRecebidos);
+                atualizarResumo();
+            });
+            td.appendChild(input);
+            tr.appendChild(td);
+
+            somaRecebido += valorExibido;
+            valoresRecebidos[ben.id] = valorExibido;
+        });
+
+        // Total Recebido
+        totalRecebido += somaRecebido;
+        const tdTotal = document.createElement('td');
+        tdTotal.className = 'p-3 font-semibold';
+        tdTotal.textContent = formatarNumero(somaRecebido);
+        tr.appendChild(tdTotal);
+
+        // Diferença
+        let diferenca = 0;
+        const modo = dadosDiferencas.modoCompensacao;
+        if (modo === 'limite') {
+            diferenca = Math.max(0, devido - somaRecebido);
+        } else {
+            diferenca = devido - somaRecebido;
+        }
+        const tdDiff = document.createElement('td');
+        tdDiff.className = 'p-3 font-bold';
+        tdDiff.textContent = formatarNumero(diferenca);
+        if (diferenca < 0) tdDiff.style.color = '#dc2626';
+        else if (diferenca > 0) tdDiff.style.color = '#16a34a';
+        tr.appendChild(tdDiff);
+
+        // Observações (placeholder)
+        const tdObs = document.createElement('td');
+        tdObs.className = 'p-3 text-slate-400 text-xs';
+        tdObs.textContent = '-';
+        tr.appendChild(tdObs);
+
+        tbody.appendChild(tr);
+    });
+
+    // Atualizar resumo
+    document.getElementById('totalDevido').textContent = formatarMoeda(totalDevido);
+    document.getElementById('totalRecebido').textContent = formatarMoeda(totalRecebido);
+    const diffTotal = totalDevido - totalRecebido;
+    document.getElementById('diferencaTotal').textContent = formatarMoeda(diffTotal);
+    document.getElementById('qtdCompetencias').textContent = competencias.length;
+    document.getElementById('qtdEditadas').textContent = qtdEditadas;
+    document.getElementById('resumoDiferencas').classList.remove('hidden');
+}
+
+// Função para recalcular uma linha após edição
+function recalcularLinha(tr, beneficiosRecebidos) {
+    const comp = tr.dataset.competencia;
+    const tdDevido = tr.querySelector('td:nth-child(2)');
+    const devido = parseFloat(tdDevido.textContent.replace(/\./g, '').replace(',', '.')) || 0;
+
+    let somaRecebido = 0;
+    // Percorrer colunas de benefícios (a partir da terceira)
+    const tds = tr.querySelectorAll('td');
+    // Índices: 0=Competência, 1=Devido, 2..n-3=Benefícios, n-2=Total, n-1=Diferença
+    const numBeneficios = beneficiosRecebidos.length;
+    for (let i = 0; i < numBeneficios; i++) {
+        const td = tds[2 + i];
+        const input = td.querySelector('input');
+        if (input) {
+            const val = parseFloat(input.value.replace(/\./g, '').replace(',', '.')) || 0;
+            somaRecebido += val;
+        }
+    }
+
+    // Atualizar Total
+    const tdTotal = tds[2 + numBeneficios];
+    tdTotal.textContent = formatarNumero(somaRecebido);
+
+    // Atualizar Diferença
+    const tdDiff = tds[3 + numBeneficios];
+    let diferenca = 0;
+    const modo = dadosDiferencas.modoCompensacao;
+    if (modo === 'limite') {
+        diferenca = Math.max(0, devido - somaRecebido);
+    } else {
+        diferenca = devido - somaRecebido;
+    }
+    tdDiff.textContent = formatarNumero(diferenca);
+    if (diferenca < 0) tdDiff.style.color = '#dc2626';
+    else if (diferenca > 0) tdDiff.style.color = '#16a34a';
+    else tdDiff.style.color = 'inherit';
+}
+
+// Atualizar resumo
+function atualizarResumo() {
+    let totalDevido = 0, totalRecebido = 0, qtdEditadas = 0;
+    document.querySelectorAll('#corpoDiferencas tr').forEach(tr => {
+        const tds = tr.querySelectorAll('td');
+        if (tds.length < 3) return;
+        const devido = parseFloat(tds[1].textContent.replace(/\./g, '').replace(',', '.')) || 0;
+        const total = parseFloat(tds[tds.length-2].textContent.replace(/\./g, '').replace(',', '.')) || 0;
+        totalDevido += devido;
+        totalRecebido += total;
+        // Contar células editadas
+        tds.forEach(td => {
+            if (td.classList.contains('celula-editada')) qtdEditadas++;
         });
     });
-    return beneficios;
+    document.getElementById('totalDevido').textContent = formatarMoeda(totalDevido);
+    document.getElementById('totalRecebido').textContent = formatarMoeda(totalRecebido);
+    document.getElementById('diferencaTotal').textContent = formatarMoeda(totalDevido - totalRecebido);
+    document.getElementById('qtdEditadas').textContent = qtdEditadas;
 }
 
-function encontrarValor(memoria, competencia, campo) {
-    const item = memoria.find(m => m.competencia === competencia);
-    return item ? item[campo] : 0;
-}
-
-function ordenarCompetencias(a, b) {
-    const [mesA, anoA] = a.split('/').map(Number);
-    const [mesB, anoB] = b.split('/').map(Number);
-    if (anoA !== anoB) return anoA - anoB;
-    return mesA - mesB;
-}
-
-function calcularDiferenca(devido, recebido) {
-    const diff = devido - recebido;
-    if (modoCompensacao === 'limite') {
-        return Math.max(0, diff);
-    }
-    return diff;
-}
-
-// =====================================================================
-// RENDERIZAÇÃO DA TABELA
-// =====================================================================
-function montarCabecalho(beneficios) {
-    const cols = ['Competência', 'Benefício Devido'];
-    beneficios.forEach((ben, idx) => {
-        const label = ben.nb && ben.especie ? `${ben.nb} (${ben.especie})` : `Benefício Recebido ${idx + 1}`;
-        cols.push(label);
-    });
-    cols.push('Total Recebido', 'Diferença Devida');
-    return cols;
-}
-
-function renderizarTabela(cabecalho, linhas, beneficios) {
-    const container = document.getElementById('guia-diferencas');
-    if (!container) return;
-
-    // Encontrar ou criar o wrapper da tabela
-    let tabelaWrapper = container.querySelector('.tabela-diferencas-wrapper');
-    if (!tabelaWrapper) {
-        tabelaWrapper = document.createElement('div');
-        tabelaWrapper.className = 'tabela-diferencas-wrapper overflow-x-auto';
-        container.appendChild(tabelaWrapper);
-    }
-
-    // Construir tabela
-    let html = '<table class="w-full text-left border-collapse text-sm diferencas-tabela">';
-    // Cabeçalho
-    html += '<thead><tr class="bg-slate-100 text-slate-700 border-b border-slate-200">';
-    cabecalho.forEach(col => {
-        html += `<th class="p-3 min-w-[100px]">${col}</th>`;
-    });
-    html += '</tr></thead>';
-
-    // Corpo
-    html += '<tbody>';
-    linhas.forEach(linha => {
-        html += `<tr class="hover:bg-slate-50 transition border-b border-slate-100">`;
-        html += `<td class="p-3 font-semibold">${linha.competencia}</td>`;
-        html += `<td class="p-3 text-slate-800">${formatarNumero(linha.devido)}</td>`;
-
-        linha.recebidos.forEach((valor, idx) => {
-            const benef = beneficios[idx];
-            const chave = `${benef.id}_${linha.competencia}`;
-            const isEditada = celulasEditadas[chave] !== undefined;
-            const classe = isEditada ? 'celula-editada bg-yellow-50' : '';
-            html += `<td class="p-3 ${classe} cursor-pointer" data-beneficio="${benef.id}" data-competencia="${linha.competencia}" onclick="editarCelula(this, '${benef.id}', '${linha.competencia}')">${formatarNumero(valor)}</td>`;
-        });
-
-        html += `<td class="p-3 font-semibold text-slate-700">${formatarNumero(linha.totalRecebido)}</td>`;
-        const diffClass = linha.diferenca < 0 ? 'text-red-600' : 'text-emerald-700';
-        html += `<td class="p-3 font-bold ${diffClass}">${formatarNumero(linha.diferenca)}</td>`;
-        html += '</tr>';
-    });
-    html += '</tbody></table>';
-
-    tabelaWrapper.innerHTML = html;
-}
-
-// =====================================================================
-// EDIÇÃO MANUAL DE CÉLULAS
-// =====================================================================
-function editarCelula(cell, beneficioId, competencia) {
-    const valorAtual = cell.textContent.trim().replace(/[^0-9,.]/g, '').replace(',', '.');
-    const valorNumerico = parseFloat(valorAtual) || 0;
-
-    const novoValor = prompt(`Editar valor para ${competencia}:`, formatarNumero(valorNumerico));
-    if (novoValor === null) return;
-
-    const numero = parseFloat(novoValor.replace(/[^0-9,.]/g, '').replace(',', '.'));
-    if (isNaN(numero)) {
-        alert('Valor inválido.');
-        return;
-    }
-
-    const chave = `${beneficioId}_${competencia}`;
-    celulasEditadas[chave] = numero;
-    cell.textContent = formatarNumero(numero);
-    cell.classList.add('bg-yellow-50');
-
-    // Recalcular totais e diferenças
-    recalcularTotais();
-    atualizarResumo();
-}
-
-function recalcularTotais() {
-    // Recalcula totais e diferenças a partir das células
-    const linhas = document.querySelectorAll('.diferencas-tabela tbody tr');
-    linhas.forEach(tr => {
-        const cells = tr.querySelectorAll('td');
-        if (cells.length < 3) return;
-        // A primeira coluna é Competência, segunda é Devido, as do meio são Recebidos, penúltima Total, última Diferença
-        const devido = parseFloat(cells[1].textContent.replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
-        let totalRecebido = 0;
-        for (let i = 2; i < cells.length - 2; i++) {
-            const val = parseFloat(cells[i].textContent.replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
-            totalRecebido += val;
-        }
-        const diferenca = calcularDiferenca(devido, totalRecebido);
-        const totalCell = cells[cells.length - 2];
-        const diffCell = cells[cells.length - 1];
-        totalCell.textContent = formatarNumero(totalRecebido);
-        diffCell.textContent = formatarNumero(diferenca);
-        const diffClass = diferenca < 0 ? 'text-red-600' : 'text-emerald-700';
-        diffCell.className = `p-3 font-bold ${diffClass}`;
-    });
-}
-
-// =====================================================================
-// RESUMO
-// =====================================================================
-function atualizarResumo(linhas) {
-    if (!linhas) {
-        linhas = extrairLinhasDaTabela();
-    }
-    let totalDevido = 0, totalRecebido = 0, totalDiferenca = 0;
-    let celulasEditadasCount = Object.keys(celulasEditadas).length;
-
-    linhas.forEach(linha => {
-        totalDevido += linha.devido;
-        totalRecebido += linha.totalRecebido;
-        totalDiferenca += linha.diferenca;
-    });
-
-    const resumoDiv = document.getElementById('resumoDiferencas');
-    if (resumoDiv) {
-        resumoDiv.innerHTML = `
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200 text-sm">
-                <div>
-                    <span class="block text-xs text-slate-500 font-semibold uppercase">Total Devido</span>
-                    <span class="font-bold text-slate-800">${formatarMoeda(totalDevido)}</span>
-                </div>
-                <div>
-                    <span class="block text-xs text-slate-500 font-semibold uppercase">Total Recebido</span>
-                    <span class="font-bold text-slate-800">${formatarMoeda(totalRecebido)}</span>
-                </div>
-                <div>
-                    <span class="block text-xs text-slate-500 font-semibold uppercase">Diferença Total</span>
-                    <span class="font-bold ${totalDiferenca < 0 ? 'text-red-600' : 'text-emerald-700'}">${formatarMoeda(totalDiferenca)}</span>
-                </div>
-                <div>
-                    <span class="block text-xs text-slate-500 font-semibold uppercase">Competências</span>
-                    <span class="font-bold text-slate-800">${linhas.length}</span>
-                </div>
-                <div>
-                    <span class="block text-xs text-slate-500 font-semibold uppercase">Células Editadas</span>
-                    <span class="font-bold text-slate-800">${celulasEditadasCount}</span>
-                </div>
-            </div>
-        `;
-    }
-}
-
-// =====================================================================
-// MODO DE COMPENSAÇÃO
-// =====================================================================
-function alterarModoCompensacao(modo) {
-    modoCompensacao = modo;
-    document.querySelectorAll('.btn-modo-compensacao').forEach(btn => {
-        btn.classList.toggle('bg-blue-600', btn.dataset.modo === modo);
-        btn.classList.toggle('bg-slate-300', btn.dataset.modo !== modo);
-    });
-    // Recalcular diferenças
-    recalcularTotais();
-    atualizarResumo();
-}
-
-// =====================================================================
-// TEMA 692 STJ – MODAL
-// =====================================================================
-function abrirModalTema692() {
-    const modal = document.getElementById('modalTema692');
-    if (modal) modal.classList.remove('hidden');
-}
-
-function fecharModalTema692() {
-    const modal = document.getElementById('modalTema692');
-    if (modal) modal.classList.add('hidden');
-}
-
-// =====================================================================
-// JSON – SALVAR E RESTAURAR
-// =====================================================================
-function salvarDadosDiferencas() {
+// Exportar dados da Guia 4
+function coletarDadosDiferencas() {
     return {
-        modoCompensacao: modoCompensacao,
-        celulasEditadas: celulasEditadas
+        modoCompensacao: dadosDiferencas.modoCompensacao,
+        celulasEditadas: dadosDiferencas.celulasEditadas
     };
 }
 
+// Importar dados da Guia 4
 function restaurarDadosDiferencas(dados) {
-    if (!dados) return;
-    if (dados.modoCompensacao) {
-        modoCompensacao = dados.modoCompensacao;
-        document.querySelectorAll('.btn-modo-compensacao').forEach(btn => {
-            btn.classList.toggle('bg-blue-600', btn.dataset.modo === modoCompensacao);
-            btn.classList.toggle('bg-slate-300', btn.dataset.modo !== modoCompensacao);
-        });
-    }
-    if (dados.celulasEditadas) {
-        celulasEditadas = dados.celulasEditadas;
-    }
-    // Recarregar tabela para aplicar edições
-    montarTabelaDiferencas();
-}
-
-// =====================================================================
-// INICIALIZAÇÃO
-// =====================================================================
-function initDiferencas() {
-    // Garantir que a tabela seja montada ao ativar a guia
-    const observer = new MutationObserver(() => {
-        const guia = document.getElementById('guia-diferencas');
-        if (guia && guia.classList.contains('ativo')) {
-            montarTabelaDiferencas();
-        }
-    });
-    observer.observe(document.getElementById('guia-diferencas'), { attributes: true, attributeFilter: ['class'] });
-    // Montar se já estiver ativa
-    if (document.getElementById('guia-diferencas').classList.contains('ativo')) {
+    if (dados) {
+        dadosDiferencas.modoCompensacao = dados.modoCompensacao || 'limite';
+        dadosDiferencas.celulasEditadas = dados.celulasEditadas || {};
+        // Atualizar radio buttons
+        document.querySelector(`input[name="modoCompensacao"][value="${dadosDiferencas.modoCompensacao}"]`).checked = true;
+        // Remontar tabela
         montarTabelaDiferencas();
     }
 }
 
-// Executar na inicialização
-document.addEventListener('DOMContentLoaded', initDiferencas);
+// Inicializar eventos da Guia 4
+function initGuiaDiferencas() {
+    // Modo de compensação
+    document.querySelectorAll('input[name="modoCompensacao"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            dadosDiferencas.modoCompensacao = this.value;
+            montarTabelaDiferencas();
+        });
+    });
+
+    // Modal Tema 1027 STJ
+    const btnTema = document.getElementById('btnTemaSTJ');
+    const modal = document.getElementById('modalTemaSTJ');
+    const fechar = document.getElementById('fecharModalSTJ');
+    if (btnTema && modal && fechar) {
+        btnTema.addEventListener('click', () => modal.classList.remove('hidden'));
+        fechar.addEventListener('click', () => modal.classList.add('hidden'));
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.classList.add('hidden');
+        });
+    }
+}
+
+// Chamada automática quando a guia 4 for ativada (app.js)
