@@ -11,7 +11,7 @@ var dadosDiferencas = {
 // FUNÇÕES AUXILIARES PARA GRADE DE COMPETÊNCIAS
 // =====================================================================
 
-// Gera lista de competências MM/AAAA entre duas datas (corrigido para evitar problemas com janeiro)
+// Gera lista de competências MM/AAAA entre duas datas
 function gerarCompetencias(inicio, fim) {
     if (!inicio || !fim) return [];
     const parse = (s) => {
@@ -23,7 +23,6 @@ function gerarCompetencias(inicio, fim) {
     if (start.ano > end.ano || (start.ano === end.ano && start.mes > end.mes)) return [];
 
     const lista = [];
-    // Usar número de meses desde o ano 0 para comparação precisa
     let currentMes = start.mes;
     let currentAno = start.ano;
     const endMonths = end.ano * 12 + end.mes;
@@ -41,19 +40,54 @@ function gerarCompetencias(inicio, fim) {
 }
 
 // Obtém o valor vigente em uma competência a partir de uma memória de reajustes
-// (carry-over do último valor disponível)
-function obterValorVigente(memoria, competencia) {
-    if (!memoria || memoria.length === 0) return 0;
-    let valor = 0;
+// Aplica carry-over progressivo (valor do último reajuste anterior ou igual à competência)
+// Se não houver reajuste anterior, retorna o valor padrão (RMI)
+function obterValorVigente(memoria, competencia, valorPadrao) {
+    // valorPadrao é o RMI (valor inicial do benefício)
+    if (!memoria || memoria.length === 0) return valorPadrao || 0;
+
+    let valor = valorPadrao || 0;
+    const numComp = competenciaParaNumero(competencia);
+
     for (let item of memoria) {
-        // memoria está ordenada por competência (garantido pelo motor)
-        if (item.competencia <= competencia) {
+        const numItem = competenciaParaNumero(item.competencia);
+        if (numItem <= numComp) {
             valor = item.valorFinal;
         } else {
             break;
         }
     }
     return valor;
+}
+
+// Obtém o valor de um benefício recebido na competência, respeitando DIB e DCB
+function obterValorBeneficioRecebido(ben, comp, dataFinal) {
+    // Se não tem DIB, não há como saber o período
+    if (!ben.dib) return 0;
+
+    const compNum = competenciaParaNumero(comp);
+    const dibNum = competenciaParaNumero(ben.dib);
+    let dcbNum = Infinity;
+
+    if (ben.dcb) {
+        dcbNum = competenciaParaNumero(ben.dcb);
+    } else {
+        // Se não tem DCB, considerar ativo até a Data Final da Evolução
+        dcbNum = competenciaParaNumero(dataFinal);
+    }
+
+    // Verificar se a competência está dentro do período de existência do benefício
+    if (compNum < dibNum || compNum > dcbNum) {
+        return 0;
+    }
+
+    // Se a memória não estiver vazia, usar carry-over
+    if (ben.memoria && ben.memoria.length > 0) {
+        return obterValorVigente(ben.memoria, comp, ben.rmi || 0);
+    }
+
+    // Se a memória estiver vazia, o valor é constante (RMI ou RMA final)
+    return ben.rmaFinal || ben.rmi || 0;
 }
 
 // =====================================================================
@@ -81,8 +115,9 @@ function montarTabelaDiferencas() {
         return;
     }
 
-    // 2. Obter memória da Evolução Devida
+    // 2. Obter memória da Evolução Devida e RMI
     const memoriaDevida = window.memoriaEvolucaoDevida || [];
+    const rmiDevida = parseFloat(document.getElementById('rmi').value.replace(/\./g, '').replace(',', '.')) || 0;
 
     // 3. Obter memórias dos benefícios recebidos, incluindo DIB, DCB e RMI
     const beneficiosRecebidos = [];
@@ -107,7 +142,6 @@ function montarTabelaDiferencas() {
                     dib,
                     dcb,
                     rmi,
-                    // Se a memória estiver vazia, o valor constante é o RMI (ou RMA final, que é igual)
                     rmaFinal: resultado.rmaFinal || rmi
                 });
             } catch(e) {}
@@ -154,42 +188,20 @@ function montarTabelaDiferencas() {
     let qtdEditadas = 0;
     let rowIndex = 0;
 
-    // Função para obter valor de um benefício na competência (com fallback para RMI constante)
-    function obterValorBeneficio(ben, comp) {
-        // Se a memória não estiver vazia, usar carry-over
-        if (ben.memoria && ben.memoria.length > 0) {
-            return obterValorVigente(ben.memoria, comp);
-        }
-        // Caso contrário: valor constante = RMI, desde que a competência esteja entre DIB e DCB (ou até Data Final)
-        // Verificar se o benefício estava ativo na competência
-        if (!ben.dib) return 0;
-        const compNum = competenciaParaNumero(comp);
-        const dibNum = competenciaParaNumero(ben.dib);
-        let dcbNum = Infinity;
-        if (ben.dcb) {
-            dcbNum = competenciaParaNumero(ben.dcb);
-        } else {
-            // Se não tem DCB, considerar ativo até a Data Final
-            dcbNum = competenciaParaNumero(dataFinal);
-        }
-        if (compNum >= dibNum && compNum <= dcbNum) {
-            return ben.rmaFinal || ben.rmi;
-        }
-        return 0;
-    }
-
     listaCompetencias.forEach(comp => {
-        // Valor Devido (com carry-over)
-        const devido = obterValorVigente(memoriaDevida, comp);
+        // Valor Devido (com carry-over progressivo, nunca usa valor final para trás)
+        const devido = obterValorVigente(memoriaDevida, comp, rmiDevida);
         totalDevido += devido;
 
         const tr = document.createElement('tr');
         tr.dataset.competencia = comp;
-        // Linhas alternadas e hover
-        tr.className = (rowIndex % 2 === 0) ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/50 hover:bg-slate-50';
+        // Linhas alternadas mais visíveis
+        tr.className = (rowIndex % 2 === 0) ? 
+            'bg-slate-50/80 hover:bg-blue-50/50' : 
+            'bg-white hover:bg-blue-50/50';
         rowIndex++;
 
-        // Coluna Competência
+        // Coluna Competência (sticky)
         const tdComp = document.createElement('td');
         tdComp.className = 'p-3 font-semibold sticky-left bg-inherit';
         tdComp.textContent = comp;
@@ -209,7 +221,8 @@ function montarTabelaDiferencas() {
             td.className = 'p-3';
             td.dataset.beneficioId = ben.id;
 
-            const valorOriginal = obterValorBeneficio(ben, comp);
+            // Valor do benefício na competência (respeitando DIB e DCB)
+            const valorOriginal = obterValorBeneficioRecebido(ben, comp, dataFinal);
             let valorExibido = valorOriginal;
 
             // Verificar se há edição manual
@@ -298,10 +311,8 @@ function montarTabelaDiferencas() {
 function recalcularLinha(tr, beneficiosRecebidos) {
     const comp = tr.dataset.competencia;
     const tds = tr.querySelectorAll('td');
-    // Índices: 0=Competência, 1=Devido, 2..n-3=Benefícios, n-2=Total, n-1=Diferença
     const numBeneficios = beneficiosRecebidos.length;
 
-    // Lê o valor devido (pode ter sido recalculado)
     const devido = parseFloat(tds[1].textContent.replace(/\./g, '').replace(',', '.')) || 0;
 
     let somaRecebido = 0;
@@ -314,11 +325,9 @@ function recalcularLinha(tr, beneficiosRecebidos) {
         }
     }
 
-    // Atualizar Total
     const tdTotal = tds[2 + numBeneficios];
     tdTotal.textContent = formatarNumero(somaRecebido);
 
-    // Atualizar Diferença
     const tdDiff = tds[3 + numBeneficios];
     let diferenca = 0;
     const modo = dadosDiferencas.modoCompensacao;
@@ -373,7 +382,6 @@ function restaurarDadosDiferencas(dados) {
         dadosDiferencas.celulasEditadas = dados.celulasEditadas || {};
         const radio = document.querySelector(`input[name="modoCompensacao"][value="${dadosDiferencas.modoCompensacao}"]`);
         if (radio) radio.checked = true;
-        // Remontar tabela
         montarTabelaDiferencas();
     }
 }
@@ -383,7 +391,6 @@ function restaurarDadosDiferencas(dados) {
 // =====================================================================
 
 function initGuiaDiferencas() {
-    // Modo de compensação
     document.querySelectorAll('input[name="modoCompensacao"]').forEach(radio => {
         radio.addEventListener('change', function() {
             dadosDiferencas.modoCompensacao = this.value;
@@ -391,7 +398,6 @@ function initGuiaDiferencas() {
         });
     });
 
-    // Modal Tema 1027 STJ
     const btnTema = document.getElementById('btnTemaSTJ');
     const modal = document.getElementById('modalTemaSTJ');
     const fechar = document.getElementById('fecharModalSTJ');
