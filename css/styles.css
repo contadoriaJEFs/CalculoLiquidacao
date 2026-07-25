@@ -25,7 +25,6 @@
         border: 1px solid #cbd5e1 !important;
         background: #f8fafc !important;
     }
-    /* Impressão apenas da guia ativa */
     .guia-container .conteudo-guia {
         display: none !important;
     }
@@ -233,35 +232,124 @@
         grid-template-columns: 1fr;
     }
 }
-/* ===== DIFERENÇAS ===== */
-.celula-editada {
-    background-color: #fef9c3 !important;
+
+/* ===================================================================== */
+/* ===== GUIA 4 – DIFERENÇAS – ESTILOS VISUAIS ===== */
+/* ===================================================================== */
+
+/* --- Resumo superior --- */
+.resumo-diferencas .cartao {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
-.celula-editada input {
-    background-color: #fef9c3 !important;
+.resumo-diferencas .cartao .rotulo {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    color: #64748b;
+    font-weight: 600;
+    letter-spacing: 0.03em;
 }
-.tabela-diferencas td {
+.resumo-diferencas .cartao .valor {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #0f172a;
+}
+
+/* --- Tabela --- */
+#tabelaDiferencas {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.875rem;
+}
+
+/* Cabeçalho */
+#tabelaDiferencas thead th {
+    background: #cbd5e1; /* slate-300 */
+    color: #0f172a;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    letter-spacing: 0.03em;
+    padding: 0.75rem 0.75rem;
+    border-bottom: 2px solid #94a3b8;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+/* Coluna Competência (fixa) */
+#tabelaDiferencas tbody td:first-child {
+    background: #e2e8f0; /* slate-200 */
+    font-weight: 600;
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    border-right: 1px solid #cbd5e1;
+}
+
+/* Coluna Benefício Devido (fixa) */
+#tabelaDiferencas tbody td:nth-child(2) {
+    background: #f8fafc; /* slate-50 */
+    position: sticky;
+    left: 90px; /* largura aproximada da primeira coluna */
+    z-index: 10;
+    border-right: 1px solid #e2e8f0;
+}
+
+/* Linhas alternadas – contraste forte */
+#tabelaDiferencas tbody tr:nth-child(odd) {
+    background: #ffffff;
+}
+#tabelaDiferencas tbody tr:nth-child(even) {
+    background: #edf2f7; /* slate-100 suave */
+}
+
+/* Hover da linha */
+#tabelaDiferencas tbody tr:hover {
+    background: #dbeafe !important; /* blue-100 */
+}
+
+/* Bordas horizontais */
+#tabelaDiferencas tbody td {
+    border-bottom: 1px solid #d1d5db;
     padding: 0.5rem 0.75rem;
     vertical-align: middle;
 }
-.tabela-diferencas td input {
+
+/* Células editadas (amarelo) */
+#tabelaDiferencas .celula-editada {
+    background: #fef9c3 !important;
+}
+#tabelaDiferencas .celula-editada input {
+    background: #fef9c3 !important;
+}
+
+/* Inputs dentro da tabela */
+#tabelaDiferencas td input {
     width: 100%;
     border: none;
     background: transparent;
     font-family: inherit;
     font-size: inherit;
     padding: 0.2rem 0;
+    color: #0f172a;
 }
-.tabela-diferencas td input:focus {
+#tabelaDiferencas td input:focus {
     outline: 2px solid #2563eb;
     outline-offset: -2px;
     border-radius: 2px;
 }
-.tabela-diferencas .sticky-left {
-    position: sticky;
-    left: 0;
-    z-index: 2;
+
+/* Coluna Diferença – cores */
+#tabelaDiferencas .diff-positivo {
+    color: #16a34a;
 }
-.modal-overlay {
-    background: rgba(0,0,0,0.5);
+#tabelaDiferencas .diff-negativo {
+    color: #dc2626;
+}
+#tabelaDiferencas .diff-zero {
+    color: #475569;
 }
