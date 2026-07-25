@@ -11,6 +11,11 @@ function ativarGuia(nomeGuia) {
     conteudos.forEach(div => {
         div.classList.toggle('ativo', div.id === 'guia-' + nomeGuia);
     });
+
+    // Disparar ações específicas ao ativar cada guia
+    if (nomeGuia === 'diferencas') {
+        montarTabelaDiferencas();
+    }
 }
 
 // Eventos de navegação
@@ -82,12 +87,13 @@ document.addEventListener('DOMContentLoaded', function() {
         dataAtualizacao.addEventListener('input', sincronizarDataFinal);
     }
 
-    // Inicialização
+    // ===== INICIALIZAÇÃO =====
     toggleFonteIndices();
     preencherDataAtual();
     ativarGuia('entradas');
-    adicionarBeneficioRecebido();
+    adicionarBeneficioRecebido({});
     onTipoAcaoChange();
+    initGuiaDiferencas();
 
     // Prescrição padrão
     document.getElementById('aplicarPrescricao').value = 'sim';
@@ -108,4 +114,16 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     termoInicialManual = false;
     calcularTermoInicial();
+
+    // Inicializar variável global da memória da evolução devida
+    window.memoriaEvolucaoDevida = [];
+
+    // Salvar memória da evolução devida após cada cálculo (expondo para ser consumido pela Guia 4)
+    const originalExibirResultado = window.exibirResultado;
+    if (originalExibirResultado) {
+        window.exibirResultado = function(resultado, parametros) {
+            window.memoriaEvolucaoDevida = resultado.memoria;
+            originalExibirResultado(resultado, parametros);
+        };
+    }
 });
