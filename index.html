@@ -396,10 +396,13 @@
             <!-- GUIA 3 – BENEFÍCIOS RECEBIDOS                                 -->
             <!-- ============================================================ -->
             <div class="conteudo-guia" id="guia-beneficios-recebidos">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-md font-bold text-slate-700 uppercase tracking-wide">Benefícios Recebidos</h3>
+               <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
+            <h3 class="text-md font-bold text-slate-700 uppercase tracking-wide">Benefícios Recebidos</h3>
+                <div class="flex gap-2">
+                    <button type="button" onclick="calcularTodosBeneficiosRecebidos()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-semibold shadow transition">Calcular Todos</button>
                     <button type="button" onclick="adicionarBeneficioRecebido()" class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-sm font-semibold shadow transition">+ Adicionar Benefício Recebido</button>
                 </div>
+            </div>
                 <div id="containerBeneficiosRecebidos" class="space-y-4">
                     <!-- Blocos serão inseridos dinamicamente -->
                 </div>
