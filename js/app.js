@@ -12,9 +12,12 @@ function ativarGuia(nomeGuia) {
         div.classList.toggle('ativo', div.id === 'guia-' + nomeGuia);
     });
 
-    // Disparar ações específicas ao ativar cada guia
+    // === CORREÇÃO: Montar a Guia 4 ao acessar a aba Diferenças ===
     if (nomeGuia === 'diferencas') {
-        montarTabelaDiferencas();
+        // Se a função existir, montar a tabela
+        if (typeof montarTabelaDiferencas === 'function') {
+            montarTabelaDiferencas();
+        }
     }
 }
 
@@ -87,13 +90,17 @@ document.addEventListener('DOMContentLoaded', function() {
         dataAtualizacao.addEventListener('input', sincronizarDataFinal);
     }
 
-    // ===== INICIALIZAÇÃO =====
+    // === CORREÇÃO: Inicializar a Guia 4 ===
+    if (typeof initGuiaDiferencas === 'function') {
+        initGuiaDiferencas();
+    }
+
+    // Inicialização
     toggleFonteIndices();
     preencherDataAtual();
     ativarGuia('entradas');
-    adicionarBeneficioRecebido({});
+    adicionarBeneficioRecebido();
     onTipoAcaoChange();
-    initGuiaDiferencas();
 
     // Prescrição padrão
     document.getElementById('aplicarPrescricao').value = 'sim';
@@ -115,15 +122,11 @@ document.addEventListener('DOMContentLoaded', function() {
     termoInicialManual = false;
     calcularTermoInicial();
 
-    // Inicializar variável global da memória da evolução devida
-    window.memoriaEvolucaoDevida = [];
-
-    // Salvar memória da evolução devida após cada cálculo (expondo para ser consumido pela Guia 4)
-    const originalExibirResultado = window.exibirResultado;
-    if (originalExibirResultado) {
-        window.exibirResultado = function(resultado, parametros) {
-            window.memoriaEvolucaoDevida = resultado.memoria;
-            originalExibirResultado(resultado, parametros);
-        };
+    // Se a guia atual for "diferencas" (ex: recarregar a página com a guia ativa), montar a tabela
+    const guiaAtiva = document.querySelector('.nav-guia button.ativo');
+    if (guiaAtiva && guiaAtiva.dataset.guia === 'diferencas') {
+        if (typeof montarTabelaDiferencas === 'function') {
+            montarTabelaDiferencas();
+        }
     }
 });
