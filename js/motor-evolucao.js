@@ -258,7 +258,7 @@ function calcularEvolucao(parametros) {
 function executarCalculo() {
     if (document.getElementById('tipoAcao').value !== 'previdenciaria') {
         mostrarErro('O cálculo de evolução está disponível apenas para "Ações Previdenciárias".');
-        return;
+        return false;
     }
 
     const painelErro = document.getElementById('painelErro');
@@ -266,7 +266,7 @@ function executarCalculo() {
 
     if (fonteIndices === 'externa' && indicesAtivos === BASE_INTERNA) {
         mostrarErro("Você selecionou 'Arquivo Externo', mas nenhum arquivo foi carregado.");
-        return;
+        return false;
     }
 
     try {
@@ -284,10 +284,12 @@ function executarCalculo() {
 
         const resultado = calcularEvolucao(parametros);
         exibirResultado(resultado, parametros);
+        return true;
 
     } catch (erro) {
         mostrarErro('Erro: ' + erro.message);
         ativarGuia('entradas');
+        return false;
     }
 }
 
@@ -297,7 +299,7 @@ function executarCalculo() {
 function exibirResultado(resultado, parametros) {
     const { memoria, rmaFinal, statusFinal, qtdReajustes, ultimoReajuste, ultimoIndice } = resultado;
 
-    // === CORREÇÃO: Armazenar a memória globalmente para a Guia 4 ===
+    // Armazenar a memória globalmente para a Guia 4
     window.memoriaEvolucaoDevida = memoria;
 
     // Identificação do cálculo
@@ -636,8 +638,12 @@ function sincronizarDataFinal() {
 function iniciarCalculoComSeguranca() {
     try {
         console.log('[CALCULO] Botão acionado');
-        executarCalculo();
-        console.log('[CALCULO] Cálculo concluído com sucesso.');
+        const sucesso = executarCalculo();
+        if (sucesso) {
+            console.log('[CALCULO] Cálculo concluído com sucesso.');
+        } else {
+            console.warn('[CALCULO] Cálculo falhou.');
+        }
     } catch (erro) {
         console.error('[CALCULO] Erro inesperado:', erro);
         mostrarErro('Erro interno ao executar o cálculo: ' + erro.message);
