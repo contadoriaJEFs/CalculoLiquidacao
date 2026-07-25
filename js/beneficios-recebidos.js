@@ -366,3 +366,31 @@ function removerBeneficioRecebido(botao) {
         if (bloco) bloco.remove();
     }
 }
+// =====================================================================
+// CALCULAR TODOS OS BENEFÍCIOS RECEBIDOS
+// =====================================================================
+function calcularTodosBeneficiosRecebidos() {
+    const blocos = document.querySelectorAll('.beneficio-recebido-bloco');
+    
+    if (blocos.length === 0) {
+        alert('Nenhum benefício recebido cadastrado para calcular.');
+        return;
+    }
+
+    let calculados = 0;
+    
+    blocos.forEach(bloco => {
+        try {
+            // Reaproveitamos a função individual já existente e testada
+            calcularBeneficioRecebido(bloco);
+            calculados++;
+        } catch (erro) {
+            console.error('[Guia 3] Erro ao calcular benefício em lote:', erro);
+        }
+    });
+
+    if (calculados > 0) {
+        // Alerta opcional para dar feedback ao usuário de que a ação foi concluída
+        alert(`${calculados} benefício(s) recebido(s) calculado(s) com sucesso!`);
+    }
+}
