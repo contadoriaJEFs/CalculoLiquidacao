@@ -130,3 +130,44 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+// =====================================================================
+// RECALCULAR CASO COMPLETO (automação do fluxo)
+// =====================================================================
+
+function recalcularCasoCompleto() {
+    console.log('[RECALCULO] Iniciando recálculo completo do caso...');
+
+    try {
+        // 1. Executar Evolução Devida
+        console.log('[RECALCULO] 1. Calculando Evolução Devida...');
+        executarCalculo();
+
+        // 2. Executar evolução de todos os benefícios da Guia 3
+        const blocos = document.querySelectorAll('.beneficio-recebido-bloco');
+        console.log(`[RECALCULO] 2. Calculando ${blocos.length} benefício(s) recebido(s)...`);
+        blocos.forEach((bloco, index) => {
+            console.log(`[RECALCULO]   - Benefício ${index + 1}: ${bloco.dataset.id || 'sem id'}`);
+            calcularBeneficioRecebido(bloco);
+        });
+
+        // 3. Atualizar Guia 4 (montar tabela e resumo)
+        console.log('[RECALCULO] 3. Atualizando Guia 4...');
+        if (typeof montarTabelaDiferencas === 'function') {
+            montarTabelaDiferencas();
+        } else {
+            console.warn('[RECALCULO] Função montarTabelaDiferencas não encontrada.');
+        }
+
+        // 4. Ativar guia 4 para exibir o resultado
+        ativarGuia('diferencas');
+        console.log('[RECALCULO] 4. Guia 4 ativada.');
+
+        // 5. Mensagem de sucesso
+        alert('Caso recalculado com sucesso.');
+
+    } catch (erro) {
+        console.error('[RECALCULO] Erro durante o recálculo:', erro);
+        alert('Erro ao recalcular o caso: ' + erro.message);
+        ativarGuia('entradas');
+    }
+}
