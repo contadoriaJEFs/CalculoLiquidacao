@@ -61,6 +61,7 @@ function obterValorVigente(memoria, competencia, valorPadrao) {
 }
 
 // Obtém o valor de um benefício recebido na competência, respeitando DIB e DCB
+// Se a memória estiver vazia, usa o RMA final (que é igual ao RMI)
 function obterValorBeneficioRecebido(ben, comp, dataFinal) {
     // Se não tem DIB, não há como saber o período
     if (!ben.dib) return 0;
@@ -189,7 +190,7 @@ function montarTabelaDiferencas() {
     let rowIndex = 0;
 
     listaCompetencias.forEach(comp => {
-        // Valor Devido (com carry-over progressivo, nunca usa valor final para trás)
+        // Valor Devido (com carry-over progressivo)
         const devido = obterValorVigente(memoriaDevida, comp, rmiDevida);
         totalDevido += devido;
 
@@ -197,8 +198,8 @@ function montarTabelaDiferencas() {
         tr.dataset.competencia = comp;
         // Linhas alternadas mais visíveis
         tr.className = (rowIndex % 2 === 0) ? 
-            'bg-slate-50/80 hover:bg-blue-50/50' : 
-            'bg-white hover:bg-blue-50/50';
+            'bg-slate-50 hover:bg-blue-50/70' : 
+            'bg-white hover:bg-blue-50/70';
         rowIndex++;
 
         // Coluna Competência (sticky)
