@@ -4,7 +4,7 @@
 
 function coletarDadosCaso() {
     const dados = {
-        versao: "5.0",
+        versao: "3.1",
         tipoArquivo: "calculo_judicial_previdenciario",
         dataExportacao: new Date().toLocaleDateString('pt-BR'),
         entradas: {
@@ -44,14 +44,10 @@ function coletarDadosCaso() {
             }
         },
         evolucaoDevida: {
-            memoria: window.memoriaEvolucaoDevida || [],
-            rmaFinal: document.getElementById('resRMA')?.textContent || '',
-            statusFinal: document.getElementById('resumoStatus')?.textContent || '',
-            qtdReajustes: document.getElementById('resQtdReajustes')?.textContent || '0',
-            ultimoReajuste: document.getElementById('resumoCompetencia')?.textContent || '',
-            ultimoIndice: document.getElementById('resumoUltimoIndice')?.textContent || ''
+            // Parâmetros utilizados (opcionais)
         },
         beneficiosRecebidos: coletarBeneficiosRecebidos(),
+        // === CORREÇÃO: Incluir dados da Guia 4 ===
         diferencas: coletarDadosDiferencas(),
         atualizacao: {
             dataAtualizacao: document.getElementById('dataAtualizacao2').value,
@@ -112,12 +108,11 @@ function importarCaso(event) {
                 alert('O arquivo selecionado não corresponde a um caso previdenciário.');
                 return;
             }
-            if (dados.versao !== '5.0') {
-                alert('Versão do arquivo não suportada. Versão esperada: 5.0');
+            if (dados.versao !== '3.1') {
+                alert('Versão do arquivo não suportada. Versão esperada: 3.1');
                 return;
             }
 
-            // ===== RESTAURAR ENTRADAS =====
             const ent = dados.entradas || {};
             const proc = ent.processo || {};
             const datas = ent.datas || {};
@@ -191,63 +186,7 @@ function importarCaso(event) {
             document.getElementById('adicionalPercentual').value = bene.adicionalPercentual || '';
             document.getElementById('dataFinal').value = bene.dataFinalEvolucao || '';
 
-            // ===== RESTAURAR EVOLUÇÃO DEVIDA (resultado) =====
-            const evo = dados.evolucaoDevida || {};
-            if (evo.memoria && evo.memoria.length) {
-                window.memoriaEvolucaoDevida = evo.memoria;
-                // Atualizar elementos de exibição da Guia 2
-                document.getElementById('resRMA').textContent = evo.rmaFinal || 'R$ 0,00';
-                document.getElementById('resumoStatus').textContent = evo.statusFinal || 'NORMAL';
-                document.getElementById('resQtdReajustes').textContent = evo.qtdReajustes || '0';
-                document.getElementById('resumoCompetencia').textContent = evo.ultimoReajuste || '-';
-                document.getElementById('resumoUltimoIndice').textContent = evo.ultimoIndice || '-';
-                // Se houver memória, preencher a tabela
-                if (evo.memoria.length) {
-                    const tbody = document.getElementById('tabelaMemoria');
-                    if (tbody) {
-                        tbody.innerHTML = '';
-                        evo.memoria.forEach(item => {
-                            const tr = document.createElement('tr');
-                            tr.className = "hover:bg-slate-50 transition";
-                            let statusExibicao = item.status === 'LIMITADO_TETO' ? 'TETO' : item.status;
-                            let rowClass = '';
-                            if (item.status === 'PISO') rowClass = 'row-piso';
-                            else if (item.status === 'LIMITADO_TETO') rowClass = 'row-teto';
-                            if (rowClass) tr.classList.add(rowClass);
-                            let statusBadgeClass = 'status-normal';
-                            if (item.status === 'PISO') statusBadgeClass = 'status-piso';
-                            else if (item.status === 'LIMITADO_TETO') statusBadgeClass = 'status-teto';
-                            tr.innerHTML = `
-                                <td class="p-3 font-semibold text-slate-800">${item.competencia}</td>
-                                <td class="p-3">${item.tipo ? `<span class="px-2 py-0.5 rounded text-xs font-bold ${item.tipo === 'PRO RATA' ? 'bg-amber-100 text-amber-800 border border-amber-200' : item.tipo === 'INTEGRAL' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : item.tipo === 'PRO RATA/FALLBACK' ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-gray-100 text-gray-600 border border-gray-200'}">${item.tipo}</span>` : '-'}</td>
-                                <td class="p-3 text-slate-600">${item.indice !== null ? item.indice.toFixed(4) : '-'}</td>
-                                <td class="p-3 text-slate-600">${formatarNumero(item.salarioMinimo)}</td>
-                                <td class="p-3 text-slate-600">${formatarNumero(item.teto)}</td>
-                                <td class="p-3 text-slate-600">${item.indiceTeto !== null ? item.indiceTeto.toFixed(5) : '-'}</td>
-                                <td class="p-3"><span class="status-badge ${statusBadgeClass}">${statusExibicao}</span></td>
-                                <td class="p-3 text-slate-600">${formatarNumero(item.valorTeorico)}</td>
-                                <td class="p-3 text-slate-600">${formatarNumero(item.valorEvoluido)}</td>
-                                <td class="p-3 valor-final">${formatarNumero(item.valorFinal)}</td>
-                            `;
-                            tbody.appendChild(tr);
-                        });
-                        document.getElementById('painelResultado').classList.remove('hidden');
-                        document.getElementById('msgSemCalculo').style.display = 'none';
-                    }
-                }
-            }
-
-            // ===== RESTAURAR BENEFÍCIOS RECEBIDOS =====
-            if (dados.beneficiosRecebidos) {
-                restaurarBeneficiosRecebidos(dados.beneficiosRecebidos);
-            }
-
-            // ===== RESTAURAR DIFERENÇAS =====
-            if (dados.diferencas) {
-                restaurarDadosDiferencas(dados.diferencas);
-            }
-
-            // ===== RESTAURAR ATUALIZAÇÃO =====
+            // Atualização
             const atu = dados.atualizacao || {};
             document.getElementById('dataAtualizacao2').value = atu.dataAtualizacao || '';
             document.getElementById('inicioJuros2').value = atu.inicioJuros || '';
@@ -255,7 +194,7 @@ function importarCaso(event) {
             document.getElementById('criterioJuros').value = atu.criterioJuros || '';
             document.getElementById('obsAtualizacao').value = atu.observacoes || '';
 
-            // ===== RESTAURAR ACORDO/RENÚNCIA =====
+            // Acordo/Renúncia
             const ar = dados.acordoRenuncia || {};
             const ac = ar.acordo || {};
             const ren = ar.renuncia || {};
@@ -268,6 +207,18 @@ function importarCaso(event) {
             document.getElementById('valorLimiteRenuncia').value = ren.valorLimite || '';
             document.getElementById('dataReferenciaRenuncia').value = ren.dataReferencia || '';
             document.getElementById('obsRenuncia').value = ren.observacoes || '';
+
+            // BENEFÍCIOS RECEBIDOS – restauração completa
+            if (dados.beneficiosRecebidos) {
+                restaurarBeneficiosRecebidos(dados.beneficiosRecebidos);
+            } else {
+                restaurarBeneficiosRecebidos([]);
+            }
+
+            // === CORREÇÃO: Restaurar dados da Guia 4 ===
+            if (dados.diferencas) {
+                restaurarDadosDiferencas(dados.diferencas);
+            }
 
             if (!termoManual) calcularTermoInicial();
             alert('Dados do caso importados com sucesso!');
@@ -283,13 +234,9 @@ function novoCaso() {
     if (confirm('Limpar todos os dados do caso atual?')) {
         limparFormulario();
         restaurarBeneficiosRecebidos([]);
-        // Limpar memória da evolução devida
-        window.memoriaEvolucaoDevida = [];
-        document.getElementById('painelResultado').classList.add('hidden');
-        document.getElementById('msgSemCalculo').style.display = 'block';
-        // Limpar dados das diferenças
-        dadosDiferencas = { modoCompensacao: 'limite', celulasEditadas: {} };
-        document.getElementById('resumoDiferencas').classList.add('hidden');
-        document.getElementById('corpoDiferencas').innerHTML = `<tr><td colspan="10" class="p-4 text-center text-slate-400">Nenhum cálculo de diferenças ainda.</td></tr>`;
+        // também limpar dados da Guia 4
+        dadosDiferencas.modoCompensacao = 'limite';
+        dadosDiferencas.celulasEditadas = {};
+        document.querySelector('input[name="modoCompensacao"][value="limite"]').checked = true;
     }
 }
