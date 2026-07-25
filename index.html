@@ -272,16 +272,9 @@
                             <button type="button" onclick="document.getElementById('fileInputCaso').click()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-semibold shadow transition">Importar Dados do Caso</button>
                             <input type="file" id="fileInputCaso" accept=".json" class="hidden" onchange="importarCaso(event)">
                             <button type="button" onclick="novoCaso()" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 text-sm font-semibold transition">Novo Caso / Limpar</button>
+                            <button type="button" onclick="recalcularCasoCompleto()" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-semibold shadow transition">🔄 Recalcular Caso Completo</button>
                         </div>
                     </div>
-
-                    <!-- BOTÃO CALCULAR -->
-                    <div class="flex justify-end space-x-4 pt-4 border-t border-slate-200">
-                        <button type="button" onclick="limparFormulario()" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 text-sm font-semibold transition">Limpar</button>
-                        <button type="button" onclick="iniciarCalculoComSeguranca()" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-semibold shadow transition">Calcular Evolução</button>
-                    </div>
-                </form>
-            </div>
 
             <!-- ============================================================ -->
             <!-- GUIA 2 – EVOLUÇÃO DEVIDA                                      -->
