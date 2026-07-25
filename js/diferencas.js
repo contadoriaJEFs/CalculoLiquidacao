@@ -1,30 +1,95 @@
 // =====================================================================
-// DIFERENÇAS – GUIA 4
+// DIFERENÇAS – GUIA 4 (CORREÇÃO CONCEITUAL - GRADE CONTÍNUA)
 // =====================================================================
 
 var dadosDiferencas = {
     modoCompensacao: 'limite', // 'limite' ou 'negativo'
-    celulasEditadas: {},       // { competencia: { colunaId: valor } }
+    celulasEditadas: {},       // { "competencia|beneficioId": valor }
 };
 
-// Função principal para montar a tabela
+// =====================================================================
+// FUNÇÕES AUXILIARES PARA GRADE DE COMPETÊNCIAS
+// =====================================================================
+
+// Gera lista de competências MM/AAAA entre duas datas
+function gerarCompetencias(inicio, fim) {
+    if (!inicio || !fim) return [];
+    const parse = (s) => {
+        let partes = s.split('/');
+        return { mes: parseInt(partes[0], 10), ano: parseInt(partes[1], 10) };
+    };
+    const start = parse(inicio);
+    const end = parse(fim);
+    if (start.ano > end.ano || (start.ano === end.ano && start.mes > end.mes)) return [];
+
+    const lista = [];
+    let currentMes = start.mes;
+    let currentAno = start.ano;
+
+    while (currentAno < end.ano || (currentAno === end.ano && currentMes <= end.mes)) {
+        lista.push(String(currentMes).padStart(2, '0') + '/' + currentAno);
+        if (currentMes === 12) {
+            currentMes = 1;
+            currentAno++;
+        } else {
+            currentMes++;
+        }
+    }
+    return lista;
+}
+
+// Obtém o valor vigente em uma competência a partir de uma memória de reajustes
+// (carry-over do último valor disponível)
+function obterValorVigente(memoria, competencia) {
+    if (!memoria || memoria.length === 0) return 0;
+    let valor = 0;
+    for (let item of memoria) {
+        // memoria está ordenada por competência (garantido pelo motor)
+        if (item.competencia <= competencia) {
+            valor = item.valorFinal;
+        } else {
+            break;
+        }
+    }
+    return valor;
+}
+
+// =====================================================================
+// FUNÇÃO PRINCIPAL: MONTAR TABELA DE DIFERENÇAS
+// =====================================================================
+
 function montarTabelaDiferencas() {
-    // 1. Obter memória da Evolução Devida
-    const memoriaDevida = window.memoriaEvolucaoDevida || [];
-    if (!memoriaDevida.length) {
-        document.getElementById('corpoDiferencas').innerHTML = `<tr><td colspan="10" class="p-4 text-center text-slate-400">Nenhum cálculo de evolução devida encontrado. Calcule a Evolução Devida primeiro.</td></tr>`;
-        document.getElementById('resumoDiferencas').classList.add('hidden');
+    const tbody = document.getElementById('corpoDiferencas');
+    const resumoDiv = document.getElementById('resumoDiferencas');
+
+    // 1. Obter período da grade
+    const termoInicial = document.getElementById('termoInicialDiferencas').value;
+    const dataFinal = document.getElementById('dataFinal').value;
+
+    if (!termoInicial || !dataFinal) {
+        tbody.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-slate-400">Defina o Termo Inicial das Diferenças e a Data Final de Evolução na guia Entradas.</td></tr>`;
+        resumoDiv.classList.add('hidden');
         return;
     }
 
-    // 2. Obter memórias dos benefícios recebidos
+    const listaCompetencias = gerarCompetencias(termoInicial, dataFinal);
+    if (listaCompetencias.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-slate-400">O Termo Inicial não pode ser posterior à Data Final.</td></tr>`;
+        resumoDiv.classList.add('hidden');
+        return;
+    }
+
+    // 2. Obter memória da Evolução Devida
+    const memoriaDevida = window.memoriaEvolucaoDevida || [];
+
+    // 3. Obter memórias dos benefícios recebidos
     const beneficiosRecebidos = [];
     document.querySelectorAll('.beneficio-recebido-bloco').forEach(bloco => {
         const resultadoStr = bloco.dataset.resultado;
         if (resultadoStr) {
             try {
                 const resultado = JSON.parse(resultadoStr);
-                if (resultado.memoria && resultado.memoria.length) {
+                if (resultado.memoria) {
                     const nb = bloco.querySelector('[data-campo="nb"]')?.value || 'Benefício';
                     const especie = bloco.querySelector('[data-campo="especie"]')?.value || '';
                     const id = bloco.dataset.id || `ben-${beneficiosRecebidos.length+1}`;
@@ -40,13 +105,9 @@ function montarTabelaDiferencas() {
         }
     });
 
-    // 3. Montar cabeçalho da tabela (colunas dinâmicas)
+    // 4. Montar cabeçalho da tabela (colunas dinâmicas)
     const thead = document.querySelector('#tabelaDiferencas thead tr');
-    // Limpar colunas antigas (manter Competência e Benefício Devido)
-    const colunasFixas = ['Competência', 'Benefício Devido'];
-    // Remover colunas dinâmicas, Total Recebido, Diferença e Observações
-    const cabecalhoAtual = thead.querySelectorAll('th');
-    // Manter apenas as duas primeiras (Competência e Benefício Devido)
+    // Manter apenas as duas primeiras colunas (Competência e Benefício Devido)
     while (thead.children.length > 2) {
         thead.removeChild(thead.lastChild);
     }
@@ -76,33 +137,16 @@ function montarTabelaDiferencas() {
     thObs.textContent = 'Observações';
     thead.appendChild(thObs);
 
-    // 4. Montar corpo da tabela
-    const tbody = document.getElementById('corpoDiferencas');
+    // 5. Montar corpo da tabela (grade contínua)
     tbody.innerHTML = '';
 
-    // Mapear memórias por competência para acesso rápido
-    const mapMemoriaDevida = {};
-    memoriaDevida.forEach(item => {
-        mapMemoriaDevida[item.competencia] = item.valorFinal;
-    });
-
-    const mapMemoriasRecebidas = {};
-    beneficiosRecebidos.forEach(ben => {
-        const map = {};
-        ben.memoria.forEach(item => {
-            map[item.competencia] = item.valorFinal;
-        });
-        mapMemoriasRecebidas[ben.id] = map;
-    });
-
-    // Para cada competência na memória devida, criar uma linha
-    const competencias = Object.keys(mapMemoriaDevida).sort(); // ordenar cronologicamente
     let totalDevido = 0;
     let totalRecebido = 0;
     let qtdEditadas = 0;
 
-    competencias.forEach(comp => {
-        const devido = mapMemoriaDevida[comp] || 0;
+    listaCompetencias.forEach(comp => {
+        // Valor Devido (com carry-over)
+        const devido = obterValorVigente(memoriaDevida, comp);
         totalDevido += devido;
 
         const tr = document.createElement('tr');
@@ -122,17 +166,17 @@ function montarTabelaDiferencas() {
 
         // Colunas para cada benefício recebido
         let somaRecebido = 0;
-        const valoresRecebidos = {};
 
         beneficiosRecebidos.forEach(ben => {
             const td = document.createElement('td');
             td.className = 'p-3';
             td.dataset.beneficioId = ben.id;
 
-            const valorOriginal = mapMemoriasRecebidas[ben.id]?.[comp] || 0;
+            // Valor original da memória (com carry-over)
+            const valorOriginal = obterValorVigente(ben.memoria, comp);
             let valorExibido = valorOriginal;
 
-            // Verificar se há edição manual para esta célula
+            // Verificar se há edição manual
             const chaveCelula = `${comp}|${ben.id}`;
             if (dadosDiferencas.celulasEditadas[chaveCelula] !== undefined) {
                 valorExibido = dadosDiferencas.celulasEditadas[chaveCelula];
@@ -140,7 +184,7 @@ function montarTabelaDiferencas() {
                 qtdEditadas++;
             }
 
-            // Criar input editável
+            // Input editável
             const input = document.createElement('input');
             input.type = 'text';
             input.value = formatarNumero(valorExibido);
@@ -168,7 +212,6 @@ function montarTabelaDiferencas() {
             tr.appendChild(td);
 
             somaRecebido += valorExibido;
-            valoresRecebidos[ben.id] = valorExibido;
         });
 
         // Total Recebido
@@ -207,22 +250,25 @@ function montarTabelaDiferencas() {
     document.getElementById('totalRecebido').textContent = formatarMoeda(totalRecebido);
     const diffTotal = totalDevido - totalRecebido;
     document.getElementById('diferencaTotal').textContent = formatarMoeda(diffTotal);
-    document.getElementById('qtdCompetencias').textContent = competencias.length;
+    document.getElementById('qtdCompetencias').textContent = listaCompetencias.length;
     document.getElementById('qtdEditadas').textContent = qtdEditadas;
-    document.getElementById('resumoDiferencas').classList.remove('hidden');
+    resumoDiv.classList.remove('hidden');
 }
 
-// Função para recalcular uma linha após edição
+// =====================================================================
+// RECALCULAR LINHA APÓS EDIÇÃO MANUAL
+// =====================================================================
+
 function recalcularLinha(tr, beneficiosRecebidos) {
     const comp = tr.dataset.competencia;
-    const tdDevido = tr.querySelector('td:nth-child(2)');
-    const devido = parseFloat(tdDevido.textContent.replace(/\./g, '').replace(',', '.')) || 0;
-
-    let somaRecebido = 0;
-    // Percorrer colunas de benefícios (a partir da terceira)
     const tds = tr.querySelectorAll('td');
     // Índices: 0=Competência, 1=Devido, 2..n-3=Benefícios, n-2=Total, n-1=Diferença
     const numBeneficios = beneficiosRecebidos.length;
+
+    // Lê o valor devido (pode ter sido recalculado)
+    const devido = parseFloat(tds[1].textContent.replace(/\./g, '').replace(',', '.')) || 0;
+
+    let somaRecebido = 0;
     for (let i = 0; i < numBeneficios; i++) {
         const td = tds[2 + i];
         const input = td.querySelector('input');
@@ -251,7 +297,10 @@ function recalcularLinha(tr, beneficiosRecebidos) {
     else tdDiff.style.color = 'inherit';
 }
 
-// Atualizar resumo
+// =====================================================================
+// ATUALIZAR RESUMO GERAL
+// =====================================================================
+
 function atualizarResumo() {
     let totalDevido = 0, totalRecebido = 0, qtdEditadas = 0;
     document.querySelectorAll('#corpoDiferencas tr').forEach(tr => {
@@ -261,7 +310,6 @@ function atualizarResumo() {
         const total = parseFloat(tds[tds.length-2].textContent.replace(/\./g, '').replace(',', '.')) || 0;
         totalDevido += devido;
         totalRecebido += total;
-        // Contar células editadas
         tds.forEach(td => {
             if (td.classList.contains('celula-editada')) qtdEditadas++;
         });
@@ -272,7 +320,10 @@ function atualizarResumo() {
     document.getElementById('qtdEditadas').textContent = qtdEditadas;
 }
 
-// Exportar dados da Guia 4
+// =====================================================================
+// EXPORTAR E IMPORTAR DADOS DA GUIA 4 (PERSISTÊNCIA JSON)
+// =====================================================================
+
 function coletarDadosDiferencas() {
     return {
         modoCompensacao: dadosDiferencas.modoCompensacao,
@@ -280,19 +331,21 @@ function coletarDadosDiferencas() {
     };
 }
 
-// Importar dados da Guia 4
 function restaurarDadosDiferencas(dados) {
     if (dados) {
         dadosDiferencas.modoCompensacao = dados.modoCompensacao || 'limite';
         dadosDiferencas.celulasEditadas = dados.celulasEditadas || {};
-        // Atualizar radio buttons
-        document.querySelector(`input[name="modoCompensacao"][value="${dadosDiferencas.modoCompensacao}"]`).checked = true;
+        const radio = document.querySelector(`input[name="modoCompensacao"][value="${dadosDiferencas.modoCompensacao}"]`);
+        if (radio) radio.checked = true;
         // Remontar tabela
         montarTabelaDiferencas();
     }
 }
 
-// Inicializar eventos da Guia 4
+// =====================================================================
+// INICIALIZAR EVENTOS DA GUIA 4
+// =====================================================================
+
 function initGuiaDiferencas() {
     // Modo de compensação
     document.querySelectorAll('input[name="modoCompensacao"]').forEach(radio => {
@@ -314,5 +367,3 @@ function initGuiaDiferencas() {
         });
     }
 }
-
-// Chamada automática quando a guia 4 for ativada (app.js)
