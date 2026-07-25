@@ -11,7 +11,7 @@ var dadosDiferencas = {
 // FUNÇÕES AUXILIARES PARA GRADE DE COMPETÊNCIAS
 // =====================================================================
 
-// Gera lista de competências MM/AAAA entre duas datas
+// Gera lista de competências MM/AAAA entre duas datas (corrigido para evitar problemas com janeiro)
 function gerarCompetencias(inicio, fim) {
     if (!inicio || !fim) return [];
     const parse = (s) => {
@@ -23,10 +23,12 @@ function gerarCompetencias(inicio, fim) {
     if (start.ano > end.ano || (start.ano === end.ano && start.mes > end.mes)) return [];
 
     const lista = [];
+    // Usar número de meses desde o ano 0 para comparação precisa
     let currentMes = start.mes;
     let currentAno = start.ano;
+    const endMonths = end.ano * 12 + end.mes;
 
-    while (currentAno < end.ano || (currentAno === end.ano && currentMes <= end.mes)) {
+    while (currentAno * 12 + currentMes <= endMonths) {
         lista.push(String(currentMes).padStart(2, '0') + '/' + currentAno);
         if (currentMes === 12) {
             currentMes = 1;
@@ -82,25 +84,32 @@ function montarTabelaDiferencas() {
     // 2. Obter memória da Evolução Devida
     const memoriaDevida = window.memoriaEvolucaoDevida || [];
 
-    // 3. Obter memórias dos benefícios recebidos
+    // 3. Obter memórias dos benefícios recebidos, incluindo DIB, DCB e RMI
     const beneficiosRecebidos = [];
     document.querySelectorAll('.beneficio-recebido-bloco').forEach(bloco => {
         const resultadoStr = bloco.dataset.resultado;
         if (resultadoStr) {
             try {
                 const resultado = JSON.parse(resultadoStr);
-                if (resultado.memoria) {
-                    const nb = bloco.querySelector('[data-campo="nb"]')?.value || 'Benefício';
-                    const especie = bloco.querySelector('[data-campo="especie"]')?.value || '';
-                    const id = bloco.dataset.id || `ben-${beneficiosRecebidos.length+1}`;
-                    beneficiosRecebidos.push({
-                        id,
-                        nb,
-                        especie,
-                        memoria: resultado.memoria,
-                        label: `NB ${nb} ${especie ? 'ESPÉCIE ' + especie : ''}`.trim()
-                    });
-                }
+                const nb = bloco.querySelector('[data-campo="nb"]')?.value || 'Benefício';
+                const especie = bloco.querySelector('[data-campo="especie"]')?.value || '';
+                const id = bloco.dataset.id || `ben-${beneficiosRecebidos.length+1}`;
+                const dib = bloco.querySelector('[data-campo="dib"]')?.value || '';
+                const dcb = bloco.querySelector('[data-campo="dcb"]')?.value || '';
+                const rmiStr = bloco.querySelector('[data-campo="rmi"]')?.value || '0';
+                const rmi = parseFloat(rmiStr.replace(/\./g, '').replace(',', '.')) || 0;
+                beneficiosRecebidos.push({
+                    id,
+                    nb,
+                    especie,
+                    memoria: resultado.memoria || [],
+                    label: `NB ${nb} ${especie ? 'ESPÉCIE ' + especie : ''}`.trim(),
+                    dib,
+                    dcb,
+                    rmi,
+                    // Se a memória estiver vazia, o valor constante é o RMI (ou RMA final, que é igual)
+                    rmaFinal: resultado.rmaFinal || rmi
+                });
             } catch(e) {}
         }
     });
@@ -143,6 +152,31 @@ function montarTabelaDiferencas() {
     let totalDevido = 0;
     let totalRecebido = 0;
     let qtdEditadas = 0;
+    let rowIndex = 0;
+
+    // Função para obter valor de um benefício na competência (com fallback para RMI constante)
+    function obterValorBeneficio(ben, comp) {
+        // Se a memória não estiver vazia, usar carry-over
+        if (ben.memoria && ben.memoria.length > 0) {
+            return obterValorVigente(ben.memoria, comp);
+        }
+        // Caso contrário: valor constante = RMI, desde que a competência esteja entre DIB e DCB (ou até Data Final)
+        // Verificar se o benefício estava ativo na competência
+        if (!ben.dib) return 0;
+        const compNum = competenciaParaNumero(comp);
+        const dibNum = competenciaParaNumero(ben.dib);
+        let dcbNum = Infinity;
+        if (ben.dcb) {
+            dcbNum = competenciaParaNumero(ben.dcb);
+        } else {
+            // Se não tem DCB, considerar ativo até a Data Final
+            dcbNum = competenciaParaNumero(dataFinal);
+        }
+        if (compNum >= dibNum && compNum <= dcbNum) {
+            return ben.rmaFinal || ben.rmi;
+        }
+        return 0;
+    }
 
     listaCompetencias.forEach(comp => {
         // Valor Devido (com carry-over)
@@ -151,10 +185,13 @@ function montarTabelaDiferencas() {
 
         const tr = document.createElement('tr');
         tr.dataset.competencia = comp;
+        // Linhas alternadas e hover
+        tr.className = (rowIndex % 2 === 0) ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/50 hover:bg-slate-50';
+        rowIndex++;
 
         // Coluna Competência
         const tdComp = document.createElement('td');
-        tdComp.className = 'p-3 font-semibold sticky-left bg-white';
+        tdComp.className = 'p-3 font-semibold sticky-left bg-inherit';
         tdComp.textContent = comp;
         tr.appendChild(tdComp);
 
@@ -172,8 +209,7 @@ function montarTabelaDiferencas() {
             td.className = 'p-3';
             td.dataset.beneficioId = ben.id;
 
-            // Valor original da memória (com carry-over)
-            const valorOriginal = obterValorVigente(ben.memoria, comp);
+            const valorOriginal = obterValorBeneficio(ben, comp);
             let valorExibido = valorOriginal;
 
             // Verificar se há edição manual
