@@ -43,9 +43,7 @@ function coletarDadosCaso() {
                 dataFinalEvolucao: document.getElementById('dataFinal').value
             }
         },
-        evolucaoDevida: {
-            // Parâmetros utilizados (opcionais)
-        },
+        evolucaoDevida: {},
         beneficiosRecebidos: coletarBeneficiosRecebidos(),
         diferencas: coletarDadosDiferencas(),
         atualizacao: {
@@ -221,7 +219,6 @@ function importarCaso(event) {
 
             if (!termoManual) calcularTermoInicial();
 
-            // ===== ÚNICO ALERTA =====
             alert('Dados do caso importados com sucesso!');
 
             // ===== RECÁLCULO AUTOMÁTICO APÓS IMPORTAÇÃO =====
