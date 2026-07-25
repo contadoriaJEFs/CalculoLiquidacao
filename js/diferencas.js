@@ -8,6 +8,28 @@ var dadosDiferencas = {
 };
 
 // =====================================================================
+// FUNÇÃO AUXILIAR PARA CONVERTER COMPETÊNCIA (ACEITA MM/AAAA OU DD/MM/AAAA)
+// =====================================================================
+function converterCompetenciaParaNumero(str) {
+    if (!str) return NaN;
+    const partes = str.split('/');
+    let mes, ano;
+    if (partes.length === 3) {
+        // Formato DD/MM/AAAA
+        mes = parseInt(partes[1], 10);
+        ano = parseInt(partes[2], 10);
+    } else if (partes.length === 2) {
+        // Formato MM/AAAA
+        mes = parseInt(partes[0], 10);
+        ano = parseInt(partes[1], 10);
+    } else {
+        return NaN;
+    }
+    if (isNaN(mes) || isNaN(ano) || mes < 1 || mes > 12 || ano < 1900) return NaN;
+    return ano * 100 + mes;
+}
+
+// =====================================================================
 // FUNÇÕES AUXILIARES PARA GRADE DE COMPETÊNCIAS
 // =====================================================================
 
@@ -43,15 +65,14 @@ function gerarCompetencias(inicio, fim) {
 // Aplica carry-over progressivo (valor do último reajuste anterior ou igual à competência)
 // Se não houver reajuste anterior, retorna o valor padrão (RMI)
 function obterValorVigente(memoria, competencia, valorPadrao) {
-    // valorPadrao é o RMI (valor inicial do benefício)
     if (!memoria || memoria.length === 0) return valorPadrao || 0;
 
     let valor = valorPadrao || 0;
-    const numComp = competenciaParaNumero(competencia);
+    const numComp = converterCompetenciaParaNumero(competencia);
 
     for (let item of memoria) {
-        const numItem = competenciaParaNumero(item.competencia);
-        if (numItem <= numComp) {
+        const numItem = converterCompetenciaParaNumero(item.competencia);
+        if (!isNaN(numItem) && numItem <= numComp) {
             valor = item.valorFinal;
         } else {
             break;
@@ -66,15 +87,20 @@ function obterValorBeneficioRecebido(ben, comp, dataFinal) {
     // Se não tem DIB, não há como saber o período
     if (!ben.dib) return 0;
 
-    const compNum = competenciaParaNumero(comp);
-    const dibNum = competenciaParaNumero(ben.dib);
+    const compNum = converterCompetenciaParaNumero(comp);
+    const dibNum = converterCompetenciaParaNumero(ben.dib);
     let dcbNum = Infinity;
 
+    // Se a conversão falhar, retorna 0
+    if (isNaN(compNum) || isNaN(dibNum)) return 0;
+
     if (ben.dcb) {
-        dcbNum = competenciaParaNumero(ben.dcb);
+        const dcbParsed = converterCompetenciaParaNumero(ben.dcb);
+        if (!isNaN(dcbParsed)) dcbNum = dcbParsed;
     } else {
         // Se não tem DCB, considerar ativo até a Data Final da Evolução
-        dcbNum = competenciaParaNumero(dataFinal);
+        const dataFinalParsed = converterCompetenciaParaNumero(dataFinal);
+        if (!isNaN(dataFinalParsed)) dcbNum = dataFinalParsed;
     }
 
     // Verificar se a competência está dentro do período de existência do benefício
@@ -120,15 +146,12 @@ function montarTabelaDiferencas() {
     const memoriaDevida = window.memoriaEvolucaoDevida || [];
     const rmiDevida = parseFloat(document.getElementById('rmi').value.replace(/\./g, '').replace(',', '.')) || 0;
 
-    // =================================================================
-    // 3. COLETA DE BENEFÍCIOS RECEBIDOS (CORRIGIDA)
-    // =================================================================
+    // 3. Coleta de benefícios recebidos
     const beneficiosRecebidos = [];
     const blocos = document.querySelectorAll('.beneficio-recebido-bloco');
     console.log('[Guia 4] Blocos de benefícios recebidos encontrados:', blocos.length);
 
     blocos.forEach(bloco => {
-        // Ler campos cadastrais
         const nb = bloco.querySelector('[data-campo="nb"]')?.value || 'Benefício';
         const especie = bloco.querySelector('[data-campo="especie"]')?.value || '';
         const id = bloco.dataset.id || `ben-${beneficiosRecebidos.length+1}`;
@@ -137,7 +160,6 @@ function montarTabelaDiferencas() {
         const rmiStr = bloco.querySelector('[data-campo="rmi"]')?.value || '0';
         const rmi = parseFloat(rmiStr.replace(/\./g, '').replace(',', '.')) || 0;
 
-        // Tentar obter resultado já calculado
         const resultadoStr = bloco.dataset.resultado;
         let memoria = [];
         let rmaFinal = rmi;
@@ -147,15 +169,11 @@ function montarTabelaDiferencas() {
                 const resultado = JSON.parse(resultadoStr);
                 memoria = resultado.memoria || [];
                 rmaFinal = resultado.rmaFinal || rmi;
-                console.log('[Guia 4] Benefício com resultado:', nb, 'memoria length:', memoria.length);
             } catch(e) {
                 console.warn('[Guia 4] Erro ao parsear resultado do bloco', id, e);
             }
-        } else {
-            console.log('[Guia 4] Benefício sem resultado (não calculado):', nb);
         }
 
-        // Sempre adicionar o benefício, mesmo sem memória (usará RMI como fallback)
         beneficiosRecebidos.push({
             id,
             nb,
@@ -173,12 +191,10 @@ function montarTabelaDiferencas() {
 
     // 4. Montar cabeçalho da tabela (colunas dinâmicas)
     const thead = document.querySelector('#tabelaDiferencas thead tr');
-    // Manter apenas as duas primeiras colunas (Competência e Benefício Devido)
     while (thead.children.length > 2) {
         thead.removeChild(thead.lastChild);
     }
 
-    // Adicionar colunas para cada benefício recebido
     beneficiosRecebidos.forEach((ben, idx) => {
         const th = document.createElement('th');
         th.className = 'p-3 min-w-[110px]';
@@ -187,7 +203,6 @@ function montarTabelaDiferencas() {
         thead.appendChild(th);
     });
 
-    // Adicionar colunas fixas: Total Recebido, Diferença, Observações
     const thTotal = document.createElement('th');
     thTotal.className = 'p-3 min-w-[110px]';
     thTotal.textContent = 'Total Recebido';
@@ -212,31 +227,26 @@ function montarTabelaDiferencas() {
     let rowIndex = 0;
 
     listaCompetencias.forEach(comp => {
-        // Valor Devido (com carry-over progressivo)
         const devido = obterValorVigente(memoriaDevida, comp, rmiDevida);
         totalDevido += devido;
 
         const tr = document.createElement('tr');
         tr.dataset.competencia = comp;
-        // Linhas alternadas com contraste mais forte
         tr.className = (rowIndex % 2 === 0) ? 
             'bg-gray-100 hover:bg-blue-100' : 
             'bg-white hover:bg-blue-100';
         rowIndex++;
 
-        // Coluna Competência (sticky)
         const tdComp = document.createElement('td');
         tdComp.className = 'p-3 font-semibold sticky-left bg-inherit';
         tdComp.textContent = comp;
         tr.appendChild(tdComp);
 
-        // Coluna Benefício Devido
         const tdDevido = document.createElement('td');
         tdDevido.className = 'p-3';
         tdDevido.textContent = formatarNumero(devido);
         tr.appendChild(tdDevido);
 
-        // Colunas para cada benefício recebido
         let somaRecebido = 0;
 
         beneficiosRecebidos.forEach(ben => {
@@ -244,11 +254,9 @@ function montarTabelaDiferencas() {
             td.className = 'p-3';
             td.dataset.beneficioId = ben.id;
 
-            // Valor do benefício na competência (respeitando DIB e DCB)
             const valorOriginal = obterValorBeneficioRecebido(ben, comp, dataFinal);
             let valorExibido = valorOriginal;
 
-            // Verificar se há edição manual
             const chaveCelula = `${comp}|${ben.id}`;
             if (dadosDiferencas.celulasEditadas[chaveCelula] !== undefined) {
                 valorExibido = dadosDiferencas.celulasEditadas[chaveCelula];
@@ -256,7 +264,6 @@ function montarTabelaDiferencas() {
                 qtdEditadas++;
             }
 
-            // Input editável
             const input = document.createElement('input');
             input.type = 'text';
             input.value = formatarNumero(valorExibido);
@@ -276,7 +283,6 @@ function montarTabelaDiferencas() {
                     delete dadosDiferencas.celulasEditadas[chave];
                     td.classList.remove('celula-editada');
                 }
-                // Recalcular linha
                 recalcularLinha(tr, beneficiosRecebidos);
                 atualizarResumo();
             });
@@ -286,14 +292,12 @@ function montarTabelaDiferencas() {
             somaRecebido += valorExibido;
         });
 
-        // Total Recebido
         totalRecebido += somaRecebido;
         const tdTotal = document.createElement('td');
         tdTotal.className = 'p-3 font-semibold';
         tdTotal.textContent = formatarNumero(somaRecebido);
         tr.appendChild(tdTotal);
 
-        // Diferença
         let diferenca = 0;
         const modo = dadosDiferencas.modoCompensacao;
         if (modo === 'limite') {
@@ -308,7 +312,6 @@ function montarTabelaDiferencas() {
         else if (diferenca > 0) tdDiff.style.color = '#16a34a';
         tr.appendChild(tdDiff);
 
-        // Observações (placeholder)
         const tdObs = document.createElement('td');
         tdObs.className = 'p-3 text-slate-400 text-xs';
         tdObs.textContent = '-';
@@ -317,7 +320,6 @@ function montarTabelaDiferencas() {
         tbody.appendChild(tr);
     });
 
-    // Atualizar resumo
     document.getElementById('totalDevido').textContent = formatarMoeda(totalDevido);
     document.getElementById('totalRecebido').textContent = formatarMoeda(totalRecebido);
     const diffTotal = totalDevido - totalRecebido;
