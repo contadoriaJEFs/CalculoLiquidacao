@@ -120,34 +120,56 @@ function montarTabelaDiferencas() {
     const memoriaDevida = window.memoriaEvolucaoDevida || [];
     const rmiDevida = parseFloat(document.getElementById('rmi').value.replace(/\./g, '').replace(',', '.')) || 0;
 
-    // 3. Obter memórias dos benefícios recebidos, incluindo DIB, DCB e RMI
+    // =================================================================
+    // 3. COLETA DE BENEFÍCIOS RECEBIDOS (CORRIGIDA)
+    // =================================================================
     const beneficiosRecebidos = [];
-    document.querySelectorAll('.beneficio-recebido-bloco').forEach(bloco => {
+    const blocos = document.querySelectorAll('.beneficio-recebido-bloco');
+    console.log('[Guia 4] Blocos de benefícios recebidos encontrados:', blocos.length);
+
+    blocos.forEach(bloco => {
+        // Ler campos cadastrais
+        const nb = bloco.querySelector('[data-campo="nb"]')?.value || 'Benefício';
+        const especie = bloco.querySelector('[data-campo="especie"]')?.value || '';
+        const id = bloco.dataset.id || `ben-${beneficiosRecebidos.length+1}`;
+        const dib = bloco.querySelector('[data-campo="dib"]')?.value || '';
+        const dcb = bloco.querySelector('[data-campo="dcb"]')?.value || '';
+        const rmiStr = bloco.querySelector('[data-campo="rmi"]')?.value || '0';
+        const rmi = parseFloat(rmiStr.replace(/\./g, '').replace(',', '.')) || 0;
+
+        // Tentar obter resultado já calculado
         const resultadoStr = bloco.dataset.resultado;
+        let memoria = [];
+        let rmaFinal = rmi;
+
         if (resultadoStr) {
             try {
                 const resultado = JSON.parse(resultadoStr);
-                const nb = bloco.querySelector('[data-campo="nb"]')?.value || 'Benefício';
-                const especie = bloco.querySelector('[data-campo="especie"]')?.value || '';
-                const id = bloco.dataset.id || `ben-${beneficiosRecebidos.length+1}`;
-                const dib = bloco.querySelector('[data-campo="dib"]')?.value || '';
-                const dcb = bloco.querySelector('[data-campo="dcb"]')?.value || '';
-                const rmiStr = bloco.querySelector('[data-campo="rmi"]')?.value || '0';
-                const rmi = parseFloat(rmiStr.replace(/\./g, '').replace(',', '.')) || 0;
-                beneficiosRecebidos.push({
-                    id,
-                    nb,
-                    especie,
-                    memoria: resultado.memoria || [],
-                    label: `NB ${nb} ${especie ? 'ESPÉCIE ' + especie : ''}`.trim(),
-                    dib,
-                    dcb,
-                    rmi,
-                    rmaFinal: resultado.rmaFinal || rmi
-                });
-            } catch(e) {}
+                memoria = resultado.memoria || [];
+                rmaFinal = resultado.rmaFinal || rmi;
+                console.log('[Guia 4] Benefício com resultado:', nb, 'memoria length:', memoria.length);
+            } catch(e) {
+                console.warn('[Guia 4] Erro ao parsear resultado do bloco', id, e);
+            }
+        } else {
+            console.log('[Guia 4] Benefício sem resultado (não calculado):', nb);
         }
+
+        // Sempre adicionar o benefício, mesmo sem memória (usará RMI como fallback)
+        beneficiosRecebidos.push({
+            id,
+            nb,
+            especie,
+            memoria: memoria,
+            label: `NB ${nb} ${especie ? 'ESPÉCIE ' + especie : ''}`.trim(),
+            dib,
+            dcb,
+            rmi,
+            rmaFinal: rmaFinal
+        });
     });
+
+    console.log('[Guia 4] Total de benefícios recebidos carregados:', beneficiosRecebidos.length);
 
     // 4. Montar cabeçalho da tabela (colunas dinâmicas)
     const thead = document.querySelector('#tabelaDiferencas thead tr');
@@ -196,10 +218,10 @@ function montarTabelaDiferencas() {
 
         const tr = document.createElement('tr');
         tr.dataset.competencia = comp;
-        // Linhas alternadas mais visíveis
+        // Linhas alternadas com contraste mais forte
         tr.className = (rowIndex % 2 === 0) ? 
-            'bg-slate-50 hover:bg-blue-50/70' : 
-            'bg-white hover:bg-blue-50/70';
+            'bg-gray-100 hover:bg-blue-100' : 
+            'bg-white hover:bg-blue-100';
         rowIndex++;
 
         // Coluna Competência (sticky)
