@@ -233,3 +233,35 @@
         grid-template-columns: 1fr;
     }
 }
+/* ===== DIFERENÇAS ===== */
+.celula-editada {
+    background-color: #fef9c3 !important;
+}
+.celula-editada input {
+    background-color: #fef9c3 !important;
+}
+.tabela-diferencas td {
+    padding: 0.5rem 0.75rem;
+    vertical-align: middle;
+}
+.tabela-diferencas td input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: inherit;
+    padding: 0.2rem 0;
+}
+.tabela-diferencas td input:focus {
+    outline: 2px solid #2563eb;
+    outline-offset: -2px;
+    border-radius: 2px;
+}
+.tabela-diferencas .sticky-left {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+}
+.modal-overlay {
+    background: rgba(0,0,0,0.5);
+}
