@@ -127,7 +127,7 @@
                             <div>
                                 <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Termo Inicial das Diferenças</label>
                                 <div class="flex items-center">
-                                    <input type="text" id="termoInicialDiferencas" placeholder="DD/MM/AAAA ou MM/AAAA" readonly class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono bg-slate-50">
+                                    <input type="text" id="termoInicialDiferencas" placeholder="MM/AAAA" readonly class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono bg-slate-50">
                                     <button type="button" id="cadeadoTermoPrincipal" class="cadeado fechado ml-2" aria-label="Desbloquear para informar manualmente o termo inicial das diferenças" title="Desbloquear para informar manualmente o termo inicial das diferenças">🔒</button>
                                 </div>
                                 <span class="text-xs text-slate-500" id="statusTermoPrincipal">Termo calculado automaticamente.</span>
@@ -165,7 +165,7 @@
                             <div>
                                 <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Termo Inicial das Diferenças (ref.)</label>
                                 <div class="flex items-center">
-                                    <input type="text" id="termoInicialDiferencas2" placeholder="DD/MM/AAAA ou MM/AAAA" readonly class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono bg-slate-50">
+                                    <input type="text" id="termoInicialDiferencas2" placeholder="MM/AAAA" readonly class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono bg-slate-50">
                                     <button type="button" id="cadeadoTermoBeneficio" class="cadeado fechado ml-2" aria-label="Desbloquear para informar manualmente o termo inicial das diferenças" title="Desbloquear para informar manualmente o termo inicial das diferenças">🔒</button>
                                 </div>
                                 <span class="text-xs text-slate-500" id="statusTermoBeneficio">Termo calculado automaticamente.</span>
@@ -396,10 +396,13 @@
             <!-- GUIA 3 – BENEFÍCIOS RECEBIDOS                                 -->
             <!-- ============================================================ -->
             <div class="conteudo-guia" id="guia-beneficios-recebidos">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-md font-bold text-slate-700 uppercase tracking-wide">Benefícios Recebidos</h3>
+               <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
+            <h3 class="text-md font-bold text-slate-700 uppercase tracking-wide">Benefícios Recebidos</h3>
+                <div class="flex gap-2">
+                    <button type="button" onclick="calcularTodosBeneficiosRecebidos()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-semibold shadow transition">Calcular Todos</button>
                     <button type="button" onclick="adicionarBeneficioRecebido()" class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-sm font-semibold shadow transition">+ Adicionar Benefício Recebido</button>
                 </div>
+            </div>
                 <div id="containerBeneficiosRecebidos" class="space-y-4">
                     <!-- Blocos serão inseridos dinamicamente -->
                 </div>
