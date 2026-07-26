@@ -43,8 +43,11 @@ function coletarDadosCaso() {
                 dataFinalEvolucao: document.getElementById('dataFinal').value
             }
         },
-        evolucaoDevida: {},
+        evolucaoDevida: {
+            // Parâmetros utilizados (opcionais)
+        },
         beneficiosRecebidos: coletarBeneficiosRecebidos(),
+        // === CORREÇÃO: Incluir dados da Guia 4 ===
         diferencas: coletarDadosDiferencas(),
         atualizacao: {
             dataAtualizacao: document.getElementById('dataAtualizacao2').value,
@@ -183,6 +186,7 @@ function importarCaso(event) {
             document.getElementById('adicionalPercentual').value = bene.adicionalPercentual || '';
             document.getElementById('dataFinal').value = bene.dataFinalEvolucao || '';
 
+            // Atualização
             const atu = dados.atualizacao || {};
             document.getElementById('dataAtualizacao2').value = atu.dataAtualizacao || '';
             document.getElementById('inicioJuros2').value = atu.inicioJuros || '';
@@ -190,6 +194,7 @@ function importarCaso(event) {
             document.getElementById('criterioJuros').value = atu.criterioJuros || '';
             document.getElementById('obsAtualizacao').value = atu.observacoes || '';
 
+            // Acordo/Renúncia
             const ar = dados.acordoRenuncia || {};
             const ac = ar.acordo || {};
             const ren = ar.renuncia || {};
@@ -203,14 +208,14 @@ function importarCaso(event) {
             document.getElementById('dataReferenciaRenuncia').value = ren.dataReferencia || '';
             document.getElementById('obsRenuncia').value = ren.observacoes || '';
 
-            // Restaurar benefícios recebidos (inclui DIP)
+            // BENEFÍCIOS RECEBIDOS – restauração completa
             if (dados.beneficiosRecebidos) {
                 restaurarBeneficiosRecebidos(dados.beneficiosRecebidos);
             } else {
                 restaurarBeneficiosRecebidos([]);
             }
 
-            // Restaurar dados da Guia 4
+            // === CORREÇÃO: Restaurar dados da Guia 4 ===
             if (dados.diferencas) {
                 restaurarDadosDiferencas(dados.diferencas);
             }
@@ -229,6 +234,7 @@ function novoCaso() {
     if (confirm('Limpar todos os dados do caso atual?')) {
         limparFormulario();
         restaurarBeneficiosRecebidos([]);
+        // também limpar dados da Guia 4
         dadosDiferencas.modoCompensacao = 'limite';
         dadosDiferencas.celulasEditadas = {};
         document.querySelector('input[name="modoCompensacao"][value="limite"]').checked = true;
