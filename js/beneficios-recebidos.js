@@ -2,10 +2,6 @@
 // BENEFÍCIOS RECEBIDOS – GUIA 3
 // =====================================================================
 
-// =====================================================================
-// BENEFÍCIOS RECEBIDOS – GUIA 3
-// =====================================================================
-
 var contadorBeneficio = 0;
 
 // Função para controlar o bloqueio/liberação da DIB Antecedente
@@ -40,7 +36,6 @@ function adicionarBeneficioRecebido(dados) {
     bloco.className = 'beneficio-recebido-bloco';
     bloco.dataset.id = contadorBeneficio;
 
-    // Estado inicial do transformado
     const transformadoInicial = dados.transformado || 'nao';
     const dibAntecedenteValor = (transformadoInicial === 'sim') ? (dados.dibAntecedente || '') : '';
     const readonlyDibAnt = (transformadoInicial === 'sim') ? '' : 'readonly';
@@ -71,6 +66,10 @@ function adicionarBeneficioRecebido(dados) {
             <div>
                 <label class="block text-xs font-bold text-slate-600 uppercase mb-1">DIB</label>
                 <input type="text" data-campo="dib" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="DD/MM/AAAA ou MM/AAAA" oninput="aplicarMascaraData(this, false)" value="${dados.dib || ''}">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">DIP (Data Início Pagamento)</label>
+                <input type="text" data-campo="dip" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="DD/MM/AAAA ou MM/AAAA" oninput="aplicarMascaraData(this, false)" value="${dados.dip || ''}">
             </div>
             <div>
                 <label class="block text-xs font-bold text-slate-600 uppercase mb-1">DCB</label>
@@ -176,10 +175,8 @@ function adicionarBeneficioRecebido(dados) {
     bloco.innerHTML = html;
     container.appendChild(bloco);
 
-    // Aplicar estado inicial do transformado
     toggleTransformacaoRecebido(bloco);
 
-    // ===== SELEÇÃO DOS ELEMENTOS =====
     const btnCalcular = bloco.querySelector('.btn-calcular-evolucao');
     const btnToggle = bloco.querySelector('.btn-toggle-memoria');
     const divResultado = bloco.querySelector('.resultado-beneficio-recebido');
@@ -202,7 +199,6 @@ function adicionarBeneficioRecebido(dados) {
         });
     }
 
-    // Restaurar estado se houver resultado
     if (resultado && divResultado) {
         divResultado.classList.remove('hidden');
         if (memoriaExpandida && memoriaDiv) {
@@ -226,19 +222,17 @@ function adicionarBeneficioRecebido(dados) {
 }
 
 // =====================================================================
-// FUNÇÃO QUE CALCULA UM BENEFÍCIO RECEBIDO INDIVIDUAL (CORRIGIDA)
+// FUNÇÃO QUE CALCULA UM BENEFÍCIO RECEBIDO INDIVIDUAL
 // =====================================================================
 function calcularBeneficioRecebido(bloco) {
     try {
-        // Coletar dados do bloco
         const getVal = (campo) => bloco.querySelector(`[data-campo="${campo}"]`).value;
         const getSelect = (campo) => bloco.querySelector(`[data-campo="${campo}"]`).value;
 
         const dib = getVal('dib');
         const rmiStr = getVal('rmi');
-        const dcb = getVal('dcb'); // mantido apenas para armazenamento
+        const dcb = getVal('dcb');
 
-        // DATA FINAL: SEMPRE a da guia Entradas (NÃO usar DCB)
         const dataFinalBeneficio = document.getElementById('dataFinal').value;
         if (!dataFinalBeneficio || dataFinalBeneficio.length < 7) {
             alert('Preencha a Data Final de Evolução na guia Entradas.');
@@ -261,7 +255,7 @@ function calcularBeneficioRecebido(bloco) {
         const parametros = {
             dib: dib,
             rmi: rmi,
-            dataFinal: dataFinalBeneficio, // <-- CORREÇÃO: usa a data final da guia Entradas
+            dataFinal: dataFinalBeneficio,
             transformado: transformado,
             dibAntecedente: dibAntecedente,
             tipoBeneficio: tipoBeneficio,
@@ -270,10 +264,8 @@ function calcularBeneficioRecebido(bloco) {
             adicionalPercentual: adicionalPercentual
         };
 
-        // Chama o motor (agora com a data final correta)
         const resultado = evoluirBeneficio(parametros);
 
-        // Atualizar a exibição
         const divResultado = bloco.querySelector('.resultado-beneficio-recebido');
         divResultado.classList.remove('hidden');
 
@@ -307,9 +299,7 @@ function calcularBeneficioRecebido(bloco) {
             </tr>
         `).join('');
 
-        // Guarda resultado no bloco para exportação
         bloco.dataset.resultado = JSON.stringify(resultado);
-        // Expandir memória automaticamente
         const memoriaDiv = divResultado.querySelector('.memoria-beneficio-recebido');
         memoriaDiv.classList.remove('hidden');
         const btnToggle = divResultado.closest('.beneficio-recebido-bloco').querySelector('.btn-toggle-memoria');
@@ -366,31 +356,26 @@ function removerBeneficioRecebido(botao) {
         if (bloco) bloco.remove();
     }
 }
+
 // =====================================================================
 // CALCULAR TODOS OS BENEFÍCIOS RECEBIDOS
 // =====================================================================
 function calcularTodosBeneficiosRecebidos() {
     const blocos = document.querySelectorAll('.beneficio-recebido-bloco');
-    
     if (blocos.length === 0) {
         alert('Nenhum benefício recebido cadastrado para calcular.');
         return;
     }
-
     let calculados = 0;
-    
     blocos.forEach(bloco => {
         try {
-            // Reaproveitamos a função individual já existente e testada
             calcularBeneficioRecebido(bloco);
             calculados++;
         } catch (erro) {
             console.error('[Guia 3] Erro ao calcular benefício em lote:', erro);
         }
     });
-
     if (calculados > 0) {
-        // Alerta opcional para dar feedback ao usuário de que a ação foi concluída
         alert(`${calculados} benefício(s) recebido(s) calculado(s) com sucesso!`);
     }
 }
