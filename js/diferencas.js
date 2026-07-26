@@ -1,25 +1,72 @@
 // =====================================================================
-// DIFERENÇAS – GUIA 4 (CORREÇÃO CONCEITUAL - GRADE CONTÍNUA)
+// DIFERENÇAS – GUIA 4 (FASE 1.5 – PROPORCIONALIDADE)
 // =====================================================================
 
 var dadosDiferencas = {
-    modoCompensacao: 'limite', // 'limite' ou 'negativo'
-    celulasEditadas: {},       // { "competencia|beneficioId": valor }
+    modoCompensacao: 'limite',
+    celulasEditadas: {},
 };
 
 // =====================================================================
-// FUNÇÃO AUXILIAR PARA CONVERTER COMPETÊNCIA (ACEITA MM/AAAA OU DD/MM/AAAA)
+// FUNÇÕES AUXILIARES DE PROPORCIONALIDADE (MÊS COMERCIAL 30 DIAS)
+// =====================================================================
+
+function normalizarDia30(dia) {
+    // Converte dia 31 para 30; qualquer dia >30 vira 30.
+    return Math.min(dia, 30);
+}
+
+function parseDataProporcional(str) {
+    // Retorna { dia, mes, ano } ou null.
+    if (!str) return null;
+    let limpo = str.trim().replace(/\D/g, '');
+    if (limpo.length === 6) { // MM/AAAA
+        let mes = parseInt(limpo.substring(0, 2), 10);
+        let ano = parseInt(limpo.substring(2, 6), 10);
+        if (mes < 1 || mes > 12 || ano < 1900) return null;
+        return { dia: 1, mes, ano };
+    }
+    if (limpo.length === 8) { // DD/MM/AAAA
+        let dia = parseInt(limpo.substring(0, 2), 10);
+        let mes = parseInt(limpo.substring(2, 4), 10);
+        let ano = parseInt(limpo.substring(4, 8), 10);
+        if (mes < 1 || mes > 12 || dia < 1 || dia > 31 || ano < 1900) return null;
+        dia = normalizarDia30(dia);
+        return { dia, mes, ano };
+    }
+    return null;
+}
+
+function calcularFracaoInicial(dia) {
+    // Data inicial: dias ativos = 30 - dia + 1
+    return (30 - dia + 1) / 30;
+}
+
+function calcularFracaoFinal(dia) {
+    // Data final: dias ativos = dia
+    return dia / 30;
+}
+
+function calcularDiasAtivos(inicio1, fim1, inicio2, fim2) {
+    // Interseção de dois intervalos [inicio, fim] inclusivos, dentro de um mês de 30 dias.
+    // Retorna número de dias em comum.
+    const ini = Math.max(inicio1, inicio2);
+    const fim = Math.min(fim1, fim2);
+    if (ini > fim) return 0;
+    return fim - ini + 1;
+}
+
+// =====================================================================
+// FUNÇÃO AUXILIAR PARA CONVERTER COMPETÊNCIA
 // =====================================================================
 function converterCompetenciaParaNumero(str) {
     if (!str) return NaN;
     const partes = str.split('/');
     let mes, ano;
     if (partes.length === 3) {
-        // Formato DD/MM/AAAA
         mes = parseInt(partes[1], 10);
         ano = parseInt(partes[2], 10);
     } else if (partes.length === 2) {
-        // Formato MM/AAAA
         mes = parseInt(partes[0], 10);
         ano = parseInt(partes[1], 10);
     } else {
@@ -33,7 +80,6 @@ function converterCompetenciaParaNumero(str) {
 // FUNÇÕES AUXILIARES PARA GRADE DE COMPETÊNCIAS
 // =====================================================================
 
-// Gera lista de competências MM/AAAA entre duas datas
 function gerarCompetencias(inicio, fim) {
     if (!inicio || !fim) return [];
     const parse = (s) => {
@@ -61,15 +107,11 @@ function gerarCompetencias(inicio, fim) {
     return lista;
 }
 
-// Obtém o valor vigente em uma competência a partir de uma memória de reajustes
-// Aplica carry-over progressivo (valor do último reajuste anterior ou igual à competência)
-// Se não houver reajuste anterior, retorna o valor padrão (RMI)
+// Obtém o valor vigente em uma competência a partir de uma memória de reajustes (carry-over)
 function obterValorVigente(memoria, competencia, valorPadrao) {
     if (!memoria || memoria.length === 0) return valorPadrao || 0;
-
     let valor = valorPadrao || 0;
     const numComp = converterCompetenciaParaNumero(competencia);
-
     for (let item of memoria) {
         const numItem = converterCompetenciaParaNumero(item.competencia);
         if (!isNaN(numItem) && numItem <= numComp) {
@@ -81,81 +123,93 @@ function obterValorVigente(memoria, competencia, valorPadrao) {
     return valor;
 }
 
-// Obtém o valor de um benefício recebido na competência, respeitando DIB e DCB
-// Se a memória estiver vazia, usa o RMA final (que é igual ao RMI)
+// Obtém o valor integral do benefício recebido para uma competência, considerando DIB, DCB e DIP.
 function obterValorBeneficioRecebido(ben, comp, dataFinal) {
-    // Se não tem DIB, não há como saber o período
     if (!ben.dib) return 0;
 
     const compNum = converterCompetenciaParaNumero(comp);
     const dibNum = converterCompetenciaParaNumero(ben.dib);
     let dcbNum = Infinity;
 
-    // Se a conversão falhar, retorna 0
     if (isNaN(compNum) || isNaN(dibNum)) return 0;
+
+    // DIP: se existir, a competência deve ser >= mês do DIP para ter valor
+    if (ben.dip) {
+        const dipNum = converterCompetenciaParaNumero(ben.dip);
+        if (!isNaN(dipNum) && compNum < dipNum) {
+            return 0; // antes do DIP -> zero
+        }
+    }
 
     if (ben.dcb) {
         const dcbParsed = converterCompetenciaParaNumero(ben.dcb);
         if (!isNaN(dcbParsed)) dcbNum = dcbParsed;
     } else {
-        // Se não tem DCB, considerar ativo até a Data Final da Evolução
         const dataFinalParsed = converterCompetenciaParaNumero(dataFinal);
         if (!isNaN(dataFinalParsed)) dcbNum = dataFinalParsed;
     }
 
-    // Verificar se a competência está dentro do período de existência do benefício
     if (compNum < dibNum || compNum > dcbNum) {
         return 0;
     }
 
-    // Se a memória não estiver vazia, usar carry-over
     if (ben.memoria && ben.memoria.length > 0) {
         return obterValorVigente(ben.memoria, comp, ben.rmi || 0);
     }
 
-    // Se a memória estiver vazia, o valor é constante (RMI ou RMA final)
     return ben.rmaFinal || ben.rmi || 0;
 }
 
 // =====================================================================
-// FUNÇÃO PRINCIPAL: MONTAR TABELA DE DIFERENÇAS
+// FUNÇÃO PRINCIPAL: MONTAR TABELA DE DIFERENÇAS (COM PROPORCIONALIDADE)
 // =====================================================================
 
 function montarTabelaDiferencas() {
     const tbody = document.getElementById('corpoDiferencas');
     const resumoDiv = document.getElementById('resumoDiferencas');
 
-    // 1. Obter período da grade
-    const termoInicial = document.getElementById('termoInicialDiferencas').value;
-    const dataFinal = document.getElementById('dataFinal').value;
+    const termoInicialStr = document.getElementById('termoInicialDiferencas').value;
+    const dataFinalStr = document.getElementById('dataFinal').value;
 
-    if (!termoInicial || !dataFinal) {
+    if (!termoInicialStr || !dataFinalStr) {
         tbody.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-slate-400">Defina o Termo Inicial das Diferenças e a Data Final de Evolução na guia Entradas.</td></tr>`;
         resumoDiv.classList.add('hidden');
         return;
     }
 
-    const listaCompetencias = gerarCompetencias(termoInicial, dataFinal);
+    // Parse do Termo Inicial (pode ter dia)
+    const termoObj = parseDataProporcional(termoInicialStr);
+    if (!termoObj) {
+        tbody.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-red-500">Termo Inicial inválido. Use MM/AAAA ou DD/MM/AAAA.</td></tr>`;
+        resumoDiv.classList.add('hidden');
+        return;
+    }
+
+    const termoMesAno = String(termoObj.mes).padStart(2,'0') + '/' + termoObj.ano;
+    const listaCompetencias = gerarCompetencias(termoMesAno, dataFinalStr);
     if (listaCompetencias.length === 0) {
         tbody.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-slate-400">O Termo Inicial não pode ser posterior à Data Final.</td></tr>`;
         resumoDiv.classList.add('hidden');
         return;
     }
 
-    // 2. Obter memória da Evolução Devida e RMI
+    // Benefício devido
     const memoriaDevida = window.memoriaEvolucaoDevida || [];
     const rmiDevida = parseFloat(document.getElementById('rmi').value.replace(/\./g, '').replace(',', '.')) || 0;
+    const dibDevidaStr = document.getElementById('dib').value;
+    const dibDevidaObj = parseDataProporcional(dibDevidaStr);
+    const dibDevidaMesAno = dibDevidaObj ? String(dibDevidaObj.mes).padStart(2,'0') + '/' + dibDevidaObj.ano : null;
+    const dibDevidaDia = dibDevidaObj ? dibDevidaObj.dia : 1;
 
-    // 3. Coleta de benefícios recebidos
+    // Coleta de benefícios recebidos
     const beneficiosRecebidos = [];
     const blocos = document.querySelectorAll('.beneficio-recebido-bloco');
-    console.log('[Guia 4] Blocos de benefícios recebidos encontrados:', blocos.length);
-
     blocos.forEach(bloco => {
         const nb = bloco.querySelector('[data-campo="nb"]')?.value || 'Benefício';
         const especie = bloco.querySelector('[data-campo="especie"]')?.value || '';
         const id = bloco.dataset.id || `ben-${beneficiosRecebidos.length+1}`;
         const dib = bloco.querySelector('[data-campo="dib"]')?.value || '';
+        const dip = bloco.querySelector('[data-campo="dip"]')?.value || '';
         const dcb = bloco.querySelector('[data-campo="dcb"]')?.value || '';
         const rmiStr = bloco.querySelector('[data-campo="rmi"]')?.value || '0';
         const rmi = parseFloat(rmiStr.replace(/\./g, '').replace(',', '.')) || 0;
@@ -163,7 +217,6 @@ function montarTabelaDiferencas() {
         const resultadoStr = bloco.dataset.resultado;
         let memoria = [];
         let rmaFinal = rmi;
-
         if (resultadoStr) {
             try {
                 const resultado = JSON.parse(resultadoStr);
@@ -178,23 +231,21 @@ function montarTabelaDiferencas() {
             id,
             nb,
             especie,
-            memoria: memoria,
+            memoria,
             label: `NB ${nb} ${especie ? 'ESPÉCIE ' + especie : ''}`.trim(),
             dib,
+            dip,
             dcb,
             rmi,
-            rmaFinal: rmaFinal
+            rmaFinal
         });
     });
 
-    console.log('[Guia 4] Total de benefícios recebidos carregados:', beneficiosRecebidos.length);
-
-    // 4. Montar cabeçalho da tabela (colunas dinâmicas)
+    // Montar cabeçalho da tabela
     const thead = document.querySelector('#tabelaDiferencas thead tr');
     while (thead.children.length > 2) {
         thead.removeChild(thead.lastChild);
     }
-
     beneficiosRecebidos.forEach((ben, idx) => {
         const th = document.createElement('th');
         th.className = 'p-3 min-w-[110px]';
@@ -202,39 +253,129 @@ function montarTabelaDiferencas() {
         th.dataset.beneficioId = ben.id;
         thead.appendChild(th);
     });
-
     const thTotal = document.createElement('th');
     thTotal.className = 'p-3 min-w-[110px]';
     thTotal.textContent = 'Total Recebido';
     thead.appendChild(thTotal);
-
     const thDiff = document.createElement('th');
     thDiff.className = 'p-3 min-w-[110px]';
     thDiff.textContent = 'Diferença Devida';
     thead.appendChild(thDiff);
-
     const thObs = document.createElement('th');
     thObs.className = 'p-3 min-w-[100px]';
     thObs.textContent = 'Observações';
     thead.appendChild(thObs);
 
-    // 5. Montar corpo da tabela (grade contínua)
+    // Montar corpo
     tbody.innerHTML = '';
-
     let totalDevido = 0;
     let totalRecebido = 0;
-    let qtdEditadas = 0;
     let rowIndex = 0;
 
     listaCompetencias.forEach(comp => {
-        const devido = obterValorVigente(memoriaDevida, comp, rmiDevida);
-        totalDevido += devido;
+        // Parse da competência (mês/ano)
+        const [mesStr, anoStr] = comp.split('/');
+        const mes = parseInt(mesStr, 10);
+        const ano = parseInt(anoStr, 10);
 
+        // --- Determinar período de apuração (influenciado pelo Termo Inicial) ---
+        let inicioApuração = 1;
+        let fimApuração = 30;
+        if (comp === termoMesAno) {
+            // Primeiro mês: inicia no dia do Termo Inicial
+            inicioApuração = termoObj.dia;
+        }
+
+        // --- VALOR DEVIDO (proporcional) ---
+        let devidoIntegral = 0;
+        if (dibDevidaObj && comp >= dibDevidaMesAno) {
+            devidoIntegral = obterValorVigente(memoriaDevida, comp, rmiDevida);
+        }
+        let fracDevido = 0;
+        if (devidoIntegral > 0) {
+            if (comp === dibDevidaMesAno) {
+                // Mês da DIB: vigência do devido inicia no dia da DIB
+                const inicioDevido = dibDevidaDia;
+                const fimDevido = 30;
+                const dias = calcularDiasAtivos(inicioApuração, fimApuração, inicioDevido, fimDevido);
+                fracDevido = dias / 30;
+            } else {
+                // Mês integral (se a competência for posterior à DIB)
+                const dias = calcularDiasAtivos(inicioApuração, fimApuração, 1, 30);
+                fracDevido = dias / 30;
+            }
+        }
+        const devidoProrratado = devidoIntegral * fracDevido;
+        totalDevido += devidoProrratado;
+
+        // --- VALORES RECEBIDOS (proporcional) ---
+        let somaRecebido = 0;
+        const valoresRecebidos = [];
+        beneficiosRecebidos.forEach(ben => {
+            const benDibObj = parseDataProporcional(ben.dib);
+            const benDcbObj = ben.dcb ? parseDataProporcional(ben.dcb) : null;
+            const benDipObj = ben.dip ? parseDataProporcional(ben.dip) : null;
+
+            // Data efetiva de início: DIP se existir, senão DIB
+            const inicioEfetivo = benDipObj || benDibObj;
+            if (!inicioEfetivo) {
+                valoresRecebidos.push(0);
+                return;
+            }
+            const inicioMesAno = String(inicioEfetivo.mes).padStart(2,'0') + '/' + inicioEfetivo.ano;
+            const inicioDia = inicioEfetivo.dia;
+
+            // Data final efetiva: DCB ou fim do mês da Data Final
+            let fimEfetivo = null;
+            let fimDia = 30;
+            if (benDcbObj) {
+                fimEfetivo = benDcbObj;
+                fimDia = fimEfetivo.dia;
+            } else {
+                // Se não tem DCB, considera até a Data Final (mês cheio)
+                fimEfetivo = { mes: parseInt(dataFinalStr.split('/')[0]), ano: parseInt(dataFinalStr.split('/')[1]) };
+                fimDia = 30;
+            }
+            const fimMesAno = String(fimEfetivo.mes).padStart(2,'0') + '/' + fimEfetivo.ano;
+
+            // Obter valor integral para esta competência
+            let valorIntegral = 0;
+            if (comp >= inicioMesAno && comp <= fimMesAno) {
+                valorIntegral = obterValorBeneficioRecebido(ben, comp, dataFinalStr);
+            }
+
+            let fracRecebido = 0;
+            if (valorIntegral > 0) {
+                let inicioRecebido = 1;
+                let fimRecebido = 30;
+                if (comp === inicioMesAno) {
+                    inicioRecebido = inicioDia;
+                }
+                if (comp === fimMesAno && benDcbObj) {
+                    fimRecebido = fimDia;
+                }
+                const dias = calcularDiasAtivos(inicioApuração, fimApuração, inicioRecebido, fimRecebido);
+                fracRecebido = dias / 30;
+            }
+            const valorProrratado = valorIntegral * fracRecebido;
+            valoresRecebidos.push(valorProrratado);
+            somaRecebido += valorProrratado;
+        });
+
+        totalRecebido += somaRecebido;
+
+        // --- DIFERENÇA ---
+        let diferenca = 0;
+        if (dadosDiferencas.modoCompensacao === 'limite') {
+            diferenca = Math.max(0, devidoProrratado - somaRecebido);
+        } else {
+            diferenca = devidoProrratado - somaRecebido;
+        }
+
+        // --- CRIAR LINHA ---
         const tr = document.createElement('tr');
         tr.dataset.competencia = comp;
-        tr.className = (rowIndex % 2 === 0) ? 
-            'bg-gray-100 hover:bg-blue-100' : 
-            'bg-white hover:bg-blue-100';
+        tr.className = (rowIndex % 2 === 0) ? 'bg-gray-100 hover:bg-blue-100' : 'bg-white hover:bg-blue-100';
         rowIndex++;
 
         const tdComp = document.createElement('td');
@@ -244,24 +385,21 @@ function montarTabelaDiferencas() {
 
         const tdDevido = document.createElement('td');
         tdDevido.className = 'p-3';
-        tdDevido.textContent = formatarNumero(devido);
+        tdDevido.textContent = formatarNumero(devidoProrratado);
         tr.appendChild(tdDevido);
 
-        let somaRecebido = 0;
-
-        beneficiosRecebidos.forEach(ben => {
+        // Colunas dos recebidos
+        beneficiosRecebidos.forEach((ben, idx) => {
             const td = document.createElement('td');
             td.className = 'p-3';
             td.dataset.beneficioId = ben.id;
 
-            const valorOriginal = obterValorBeneficioRecebido(ben, comp, dataFinal);
+            const valorOriginal = valoresRecebidos[idx] || 0;
             let valorExibido = valorOriginal;
-
             const chaveCelula = `${comp}|${ben.id}`;
             if (dadosDiferencas.celulasEditadas[chaveCelula] !== undefined) {
                 valorExibido = dadosDiferencas.celulasEditadas[chaveCelula];
                 td.classList.add('celula-editada');
-                qtdEditadas++;
             }
 
             const input = document.createElement('input');
@@ -288,23 +426,15 @@ function montarTabelaDiferencas() {
             });
             td.appendChild(input);
             tr.appendChild(td);
-
-            somaRecebido += valorExibido;
         });
 
-        totalRecebido += somaRecebido;
+        // Total Recebido
         const tdTotal = document.createElement('td');
         tdTotal.className = 'p-3 font-semibold';
         tdTotal.textContent = formatarNumero(somaRecebido);
         tr.appendChild(tdTotal);
 
-        let diferenca = 0;
-        const modo = dadosDiferencas.modoCompensacao;
-        if (modo === 'limite') {
-            diferenca = Math.max(0, devido - somaRecebido);
-        } else {
-            diferenca = devido - somaRecebido;
-        }
+        // Diferença
         const tdDiff = document.createElement('td');
         tdDiff.className = 'p-3 font-bold';
         tdDiff.textContent = formatarNumero(diferenca);
@@ -312,6 +442,7 @@ function montarTabelaDiferencas() {
         else if (diferenca > 0) tdDiff.style.color = '#16a34a';
         tr.appendChild(tdDiff);
 
+        // Observações
         const tdObs = document.createElement('td');
         tdObs.className = 'p-3 text-slate-400 text-xs';
         tdObs.textContent = '-';
@@ -320,10 +451,10 @@ function montarTabelaDiferencas() {
         tbody.appendChild(tr);
     });
 
-    // Atualiza o resumo de modo delegado à função unificada
-    atualizarResumo();
+    // Atualizar resumo
     document.getElementById('qtdCompetencias').textContent = listaCompetencias.length;
     resumoDiv.classList.remove('hidden');
+    atualizarResumo();
 }
 
 // =====================================================================
@@ -373,22 +504,16 @@ function atualizarResumo() {
     
     document.querySelectorAll('#corpoDiferencas tr').forEach(tr => {
         const tds = tr.querySelectorAll('td');
-        if (tds.length < 3) return; // Ignora a linha de placeholder vazia
-        
+        if (tds.length < 3) return;
         const devido = parseFloat(tds[1].textContent.replace(/\./g, '').replace(',', '.')) || 0;
-        // A penúltima coluna é sempre o "Total Recebido"
         const total = parseFloat(tds[tds.length-2].textContent.replace(/\./g, '').replace(',', '.')) || 0;
-        
         totalDevido += devido;
         totalRecebido += total;
-        
-        // Aplica a regra de compensação competência por competência
         if (dadosDiferencas.modoCompensacao === 'limite') {
             diferencaTotal += Math.max(0, devido - total);
         } else {
             diferencaTotal += (devido - total);
         }
-        
         tds.forEach(td => {
             if (td.classList.contains('celula-editada')) qtdEditadas++;
         });
@@ -401,7 +526,7 @@ function atualizarResumo() {
 }
 
 // =====================================================================
-// EXPORTAR E IMPORTAR DADOS DA GUIA 4 (PERSISTÊNCIA JSON)
+// EXPORTAR E IMPORTAR DADOS DA GUIA 4
 // =====================================================================
 
 function coletarDadosDiferencas() {
